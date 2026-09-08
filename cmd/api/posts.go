@@ -1,11 +1,12 @@
 package main
 
 import (
-	"log"
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/annguyen0511/social/internal/model"
+	"github.com/annguyen0511/social/internal/store"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -19,7 +20,7 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 
 	var req createPostRequest
 	if err := readJSON(w, r, &req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		app.badRequestResponse(w, r, err)
 		return
 	}
 
@@ -33,12 +34,12 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 
 	ctx := r.Context()
 	if err := app.store.Post.Create(ctx, &post); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		app.internalServerError(w, r, err)
 		return
 	}
 
 	if err := writeJSON(w, http.StatusCreated, post); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		app.internalServerError(w, r, err)
 		return
 	}
 
@@ -50,22 +51,27 @@ func (app *application) listPostsHandler(w http.ResponseWriter, r *http.Request)
 
 func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	postIdStr := chi.URLParam(r, "postID")
-	log.Println(postIdStr)
 	postId, err := strconv.ParseInt(postIdStr, 10, 64)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid post ID")
+		app.badRequestResponse(w, r, err)
 		return
 	}
 
 	ctx := r.Context()
 	post, err := app.store.Post.GetById(ctx, postId)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
-		return
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			app.notFoundResponse(w, r, err)
+			return
+		default:
+			app.internalServerError(w, r, err)
+			return
+		}
 	}
 
 	if err := writeJSON(w, http.StatusOK, post); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		app.internalServerError(w, r, err)
 		return
 	}
 }
