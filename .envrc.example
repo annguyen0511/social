@@ -1,0 +1,2 @@
+export ADDR=":8080"
+export DB_ADDR="postgres://<user>:<password>@localhost:5432/socialnetwork?sslmode=disable"

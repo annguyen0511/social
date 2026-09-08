@@ -1,0 +1,11 @@
+# Build output / Air tmp_dir
+bin/
+
+# Local environment (contains DB credentials)
+.envrc
+
+# Editor
+.vscode/
+
+# Local scratch SQL
+*.session.sql
