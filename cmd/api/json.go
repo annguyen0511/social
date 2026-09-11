@@ -40,3 +40,24 @@ func writeJSONError(w http.ResponseWriter, status int, message string) error {
 	}
 	return writeJSON(w, status, err)
 }
+
+func (app *application) jsonResponse(w http.ResponseWriter, r *http.Request, status int, data any, message string) error {
+	type JSONResponse struct {
+		Status    string `json:"status"`
+		Data      any    `json:"data"`
+		IsSuccess bool   `json:"is_success"`
+		Message   string `json:"message,omitempty"`
+	}
+
+	resp := JSONResponse{
+		Status:    http.StatusText(status),
+		Data:      data,
+		IsSuccess: status >= 200 && status < 300,
+		Message:   message,
+	}
+	if err := writeJSON(w, status, resp); err != nil {
+		app.internalServerError(w, r, err)
+		return err
+	}
+	return nil
+}
