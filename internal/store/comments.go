@@ -17,6 +17,10 @@ func (s *CommentStore) Create(ctx context.Context, comment *model.Comment) error
 	VALUES ($1, $2, $3)
 	RETURNING id, created_at, updated_at
 	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
 	err := s.db.QueryRowContext(
 		ctx,
 		query,
@@ -45,6 +49,10 @@ func (s *CommentStore) GetByPostId(ctx context.Context, postID int64) ([]model.C
 	WHERE c.post_id = $1
 	ORDER BY c.created_at DESC
 	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
 	rows, err := s.db.QueryContext(ctx, query, postID)
 	if err != nil {
 		return nil, err

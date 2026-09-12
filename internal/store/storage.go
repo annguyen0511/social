@@ -4,11 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/annguyen0511/social/internal/model"
 )
 
-var ErrNotFound = errors.New("resource not found")
+var (
+	ErrNotFound = errors.New("resource not found")
+	ErrConflict = errors.New("resource conflict")
+
+	QueryTimeoutDuration = time.Second * 5
+)
 
 type Storage struct {
 	Post interface {
