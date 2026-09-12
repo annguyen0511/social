@@ -14,14 +14,20 @@ type UserStore struct {
 
 func (u *UserStore) Create(ctx context.Context, user *model.User) error {
 	query := `
-	INSERT INTO users (username, email, password) 
-	VALUES ($1, $2, $3)
-	RETURNING id, created_at
+	INSERT INTO users (first_name, last_name, avatar_url, username, email, password)
+	VALUES ($1, $2, $3, $4, $5, $6)
+	RETURNING id, created_at, updated_at
 	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
 
 	err := u.db.QueryRowContext(
 		ctx,
 		query,
+		user.FirstName,
+		user.LastName,
+		user.AvatarURL,
 		user.UserName,
 		user.Email,
 		user.Password,
@@ -29,6 +35,7 @@ func (u *UserStore) Create(ctx context.Context, user *model.User) error {
 		Scan(
 			&user.ID,
 			&user.CreatedAt,
+			&user.UpdatedAt,
 		)
 
 	if err != nil {
