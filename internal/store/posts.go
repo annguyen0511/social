@@ -18,6 +18,10 @@ func (s *PostStore) Create(ctx context.Context, post *model.Post) error {
 	INSERT INTO posts (content, title, user_id, tags)
 	VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at
 	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
 	err := s.db.QueryRowContext(
 		ctx,
 		query,
@@ -42,9 +46,13 @@ func (s *PostStore) Create(ctx context.Context, post *model.Post) error {
 func (s *PostStore) Update(ctx context.Context, post *model.Post) error {
 	query := `
 	UPDATE posts
-	SET content = $1, title = $2, tags = $3, updated_at = NOW()
-	WHERE id = $4 RETURNING id, updated_at
+	SET content = $1, title = $2, tags = $3, version = version + 1, updated_at = NOW()
+	WHERE id = $4 AND version = $5 RETURNING version
 	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
 	err := s.db.QueryRowContext(
 		ctx,
 		query,
@@ -52,14 +60,19 @@ func (s *PostStore) Update(ctx context.Context, post *model.Post) error {
 		post.Title,
 		pq.Array(post.Tags),
 		post.ID,
+		post.Version,
 	).
 		Scan(
-			&post.ID,
-			&post.UpdatedAt,
+			&post.Version,
 		)
 
 	if err != nil {
-		return err
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrConflict
+		default:
+			return err
+		}
 	}
 
 	return nil
@@ -68,11 +81,15 @@ func (s *PostStore) Update(ctx context.Context, post *model.Post) error {
 func (s *PostStore) GetById(ctx context.Context, id int64) (*model.Post, error) {
 	var post model.Post
 	query := `
-	SELECT id, content, title, user_id, tags, created_at, updated_at
+	SELECT id, content, title, user_id, tags, created_at, updated_at, version
 	FROM posts
 	WHERE id = $1
 	`
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&post.ID, &post.Content, &post.Title, &post.UserID, pq.Array(&post.Tags), &post.CreatedAt, &post.UpdatedAt)
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&post.ID, &post.Content, &post.Title, &post.UserID, pq.Array(&post.Tags), &post.CreatedAt, &post.UpdatedAt, &post.Version)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -89,6 +106,10 @@ func (s *PostStore) Delete(ctx context.Context, id int64) error {
 	DELETE FROM posts
 	WHERE id = $1
 	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
 	result, err := s.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return err

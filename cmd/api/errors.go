@@ -18,6 +18,13 @@ func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Reques
 	writeJSONError(w, http.StatusBadRequest, err.Error())
 }
 
+func (app *application) conflictResponse(w http.ResponseWriter, r *http.Request, err error) {
+	log.Printf("Conflict: %s path: %s error: %v", r.Method, r.URL.Path, err)
+
+	msg := "resource conflict"
+	writeJSONError(w, http.StatusConflict, msg)
+}
+
 func (app *application) notFoundResponse(w http.ResponseWriter, r *http.Request, err error) {
 	log.Printf("Not found: %s path: %s error: %v", r.Method, r.URL.Path, err)
 
