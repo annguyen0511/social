@@ -18,6 +18,12 @@ func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Reques
 	writeJSONError(w, http.StatusBadRequest, err.Error())
 }
 
+func (app *application) forbiddenResponse(w http.ResponseWriter, r *http.Request, err error) {
+	log.Printf("Forbidden: %s path: %s error: %v", r.Method, r.URL.Path, err)
+
+	writeJSONError(w, http.StatusForbidden, err.Error())
+}
+
 func (app *application) conflictResponse(w http.ResponseWriter, r *http.Request, err error) {
 	log.Printf("Conflict: %s path: %s error: %v", r.Method, r.URL.Path, err)
 

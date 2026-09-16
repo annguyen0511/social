@@ -68,6 +68,29 @@ func (app *application) mount() *chi.Mux {
 			// 	r.Get("feed", app.createCommentHandler)
 			// })
 		})
+
+		// The {userID} below is always the target of the action
+		r.Route("/friend-ship", func(r chi.Router) {
+			r.Get("/followers", app.listFollowersHandler)
+			r.Get("/following", app.listFollowingHandler)
+			r.Get("/blocking", app.listBlockingHandler)
+			r.Get("/close-friends", app.listCloseFriendsHandler)
+
+			r.Route("/{userID}", func(r chi.Router) {
+				r.Use(app.userContextMiddleware)
+
+				r.Get("/", app.friendshipStatusHandler)
+
+				r.Put("/follow", app.followUserHandler)
+				r.Delete("/follow", app.unfollowUserHandler)
+
+				r.Put("/block", app.blockUserHandler)
+				r.Delete("/block", app.unblockUserHandler)
+
+				r.Put("/close-friend", app.addCloseFriendHandler)
+				r.Delete("/close-friend", app.removeCloseFriendHandler)
+			})
+		})
 	})
 	return r
 }
