@@ -12,19 +12,60 @@ type BlockStore struct {
 }
 
 func (s *BlockStore) Block(ctx context.Context, blockerId int64, blockedId int64) error {
-	query := `
-	INSERT INTO blocks (blocker_id, blocked_id)
-	VALUES ($1, $2)
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := s.db.ExecContext(ctx, query, blockerId, blockedId)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	return nil
+	defer tx.Rollback()
+
+	// unfollow if exist before block
+	dropFollows := `
+	DELETE FROM follows
+	WHERE (follower_id = $1 AND following_id = $2)
+	   OR (follower_id = $2 AND following_id = $1)
+	`
+	if _, err := tx.ExecContext(ctx, dropFollows, blockerId, blockedId); err != nil {
+		return err
+	}
+
+	// remove from close friends if exist
+	dropCloseFriends := `
+	DELETE FROM close_friends
+	WHERE (user_id = $1 AND friend_id = $2)
+	   OR (user_id = $2 AND friend_id = $1)
+	`
+	if _, err := tx.ExecContext(ctx, dropCloseFriends, blockerId, blockedId); err != nil {
+		return err
+	}
+
+	insertBlock := `
+	INSERT INTO blocks (blocker_id, blocked_id)
+	VALUES ($1, $2)
+	ON CONFLICT DO NOTHING
+	`
+	if _, err := tx.ExecContext(ctx, insertBlock, blockerId, blockedId); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// check block exists in transaction
+func blockExistsTx(ctx context.Context, tx *sql.Tx, userId int64, otherId int64) (bool, error) {
+	query := `
+	SELECT EXISTS(
+		SELECT 1 FROM blocks
+		WHERE (blocker_id = $1 AND blocked_id = $2)
+		   OR (blocker_id = $2 AND blocked_id = $1)
+	)
+	`
+
+	var exists bool
+	err := tx.QueryRowContext(ctx, query, userId, otherId).Scan(&exists)
+	return exists, err
 }
 
 func (s *BlockStore) Unblock(ctx context.Context, blockerId int64, blockedId int64) error {

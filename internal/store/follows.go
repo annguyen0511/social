@@ -12,19 +12,33 @@ type FollowStore struct {
 }
 
 func (s *FollowStore) Follow(ctx context.Context, followerId int64, followingId int64) error {
-	query := `
-	INSERT INTO follows (follower_id, following_id)
-	VALUES ($1, $2)
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := s.db.ExecContext(ctx, query, followerId, followingId)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	return nil
+	defer tx.Rollback()
+
+	blocked, err := blockExistsTx(ctx, tx, followerId, followingId)
+	if err != nil {
+		return err
+	}
+	if blocked {
+		return ErrBlocked
+	}
+
+	query := `
+	INSERT INTO follows (follower_id, following_id)
+	VALUES ($1, $2)
+	ON CONFLICT DO NOTHING
+	`
+	if _, err := tx.ExecContext(ctx, query, followerId, followingId); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (s *FollowStore) Unfollow(ctx context.Context, followerId int64, followingId int64) error {

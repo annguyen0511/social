@@ -12,6 +12,7 @@ import (
 var (
 	ErrNotFound = errors.New("resource not found")
 	ErrConflict = errors.New("resource conflict")
+	ErrBlocked  = errors.New("a block exists between the two users")
 
 	QueryTimeoutDuration = time.Second * 5
 )

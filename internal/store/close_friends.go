@@ -10,19 +10,33 @@ type CloseFriendStore struct {
 }
 
 func (s *CloseFriendStore) Add(ctx context.Context, userID int64, friendID int64) error {
-	query := `
-	INSERT INTO close_friends (user_id, friend_id)
-	VALUES ($1, $2)
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := s.db.ExecContext(ctx, query, userID, friendID)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	return nil
+	defer tx.Rollback()
+
+	blocked, err := blockExistsTx(ctx, tx, userID, friendID)
+	if err != nil {
+		return err
+	}
+	if blocked {
+		return ErrBlocked
+	}
+
+	query := `
+	INSERT INTO close_friends (user_id, friend_id)
+	VALUES ($1, $2)
+	ON CONFLICT DO NOTHING
+	`
+	if _, err := tx.ExecContext(ctx, query, userID, friendID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (s *CloseFriendStore) Remove(ctx context.Context, userID int64, friendID int64) error {
