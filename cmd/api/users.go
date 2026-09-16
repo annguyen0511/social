@@ -79,3 +79,17 @@ func (app *application) registerHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 }
+
+func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
+	user, ok := getUserFromContext(r)
+	if !ok {
+		app.badRequestResponse(w, r, errors.New("user not found"))
+		return
+	}
+
+	err := app.jsonResponse(w, r, http.StatusOK, user, "user retrieved successfully")
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+}

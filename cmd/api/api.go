@@ -59,9 +59,14 @@ func (app *application) mount() *chi.Mux {
 			r.Post("/register", app.registerHandler)
 			// r.Post("/login", app.loginHandler)
 			r.Route("/{userID}", func(r chi.Router) {
-				// r.Get("/", app.getUserHandler)
+				r.Use(app.userContextMiddleware)
+
+				r.Get("/", app.getUserHandler)
 				// r.Patch("/",)
 			})
+			// r.Group(func(r chi.Router) {
+			// 	r.Get("feed", app.createCommentHandler)
+			// })
 		})
 	})
 	return r
