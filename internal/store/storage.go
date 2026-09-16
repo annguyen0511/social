@@ -34,12 +34,34 @@ type Storage struct {
 		Create(context.Context, *model.Comment) error
 		GetByPostId(context.Context, int64) ([]model.Comment, error)
 	}
+	Follow interface {
+		Follow(context.Context, int64, int64) error
+		Unfollow(context.Context, int64, int64) error
+		GetFollowers(context.Context, int64) ([]model.Follow, error)
+		GetFollowing(context.Context, int64) ([]model.Follow, error)
+		IsFollowing(context.Context, int64, int64) (bool, error)
+	}
+	Block interface {
+		Block(ctx context.Context, blockerId int64, blockedId int64) error
+		Unblock(ctx context.Context, blockerId int64, blockedId int64) error
+		ListBlocking(ctx context.Context, blockerId int64) ([]model.Block, error)
+		IsBlocking(ctx context.Context, blockerId int64, blockedId int64) (bool, error)
+	}
+	CloseFriend interface {
+		Add(ctx context.Context, userID int64, friendID int64) error
+		Remove(ctx context.Context, userID int64, friendID int64) error
+		List(ctx context.Context, userID int64) ([]int64, error)
+		IsCloseFriend(ctx context.Context, userID, friendID int64) (bool, error)
+	}
 }
 
 func NewStorage(db *sql.DB) Storage {
 	return Storage{
-		Post:    &PostStore{db},
-		User:    &UserStore{db},
-		Comment: &CommentStore{db},
+		Post:        &PostStore{db},
+		User:        &UserStore{db},
+		Comment:     &CommentStore{db},
+		Follow:      &FollowStore{db},
+		Block:       &BlockStore{db},
+		CloseFriend: &CloseFriendStore{db},
 	}
 }
