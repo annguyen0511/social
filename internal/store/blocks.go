@@ -45,7 +45,7 @@ func (s *BlockStore) Unblock(ctx context.Context, blockerId int64, blockedId int
 
 func (s *BlockStore) ListBlocking(ctx context.Context, blockerId int64) ([]model.Block, error) {
 	query := `
-	SELECT blocked_id
+	SELECT blocker_id, blocked_id, created_at
 	FROM blocks
 	WHERE blocker_id = $1
 	`
@@ -59,10 +59,10 @@ func (s *BlockStore) ListBlocking(ctx context.Context, blockerId int64) ([]model
 	}
 	defer rows.Close()
 
-	var blocks []model.Block
+	blocks := []model.Block{}
 	for rows.Next() {
 		var block model.Block
-		if err := rows.Scan(&block.BlockedID); err != nil {
+		if err := rows.Scan(&block.BlockerID, &block.BlockedID, &block.CreatedAt); err != nil {
 			return nil, err
 		}
 		blocks = append(blocks, block)

@@ -57,7 +57,7 @@ func (s *CloseFriendStore) List(ctx context.Context, userID int64) ([]int64, err
 	}
 	defer rows.Close()
 
-	var friendIDs []int64
+	friendIDs := []int64{}
 	for rows.Next() {
 		var friendID int64
 		if err := rows.Scan(&friendID); err != nil {

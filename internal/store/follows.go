@@ -45,7 +45,7 @@ func (s *FollowStore) Unfollow(ctx context.Context, followerId int64, followingI
 
 func (s *FollowStore) GetFollowers(ctx context.Context, followingId int64) ([]model.Follow, error) {
 	query := `
-	SELECT follower_id
+	SELECT follower_id, following_id, created_at
 	FROM follows
 	WHERE following_id = $1
 	`
@@ -59,10 +59,10 @@ func (s *FollowStore) GetFollowers(ctx context.Context, followingId int64) ([]mo
 	}
 	defer rows.Close()
 
-	var follows []model.Follow
+	follows := []model.Follow{}
 	for rows.Next() {
 		var follow model.Follow
-		if err := rows.Scan(&follow.FollowerID); err != nil {
+		if err := rows.Scan(&follow.FollowerID, &follow.FollowingID, &follow.CreatedAt); err != nil {
 			return nil, err
 		}
 		follows = append(follows, follow)
@@ -73,7 +73,7 @@ func (s *FollowStore) GetFollowers(ctx context.Context, followingId int64) ([]mo
 
 func (s *FollowStore) GetFollowing(ctx context.Context, followerId int64) ([]model.Follow, error) {
 	query := `
-	SELECT following_id
+	SELECT follower_id, following_id, created_at
 	FROM follows
 	WHERE follower_id = $1
 	`
@@ -87,10 +87,10 @@ func (s *FollowStore) GetFollowing(ctx context.Context, followerId int64) ([]mod
 	}
 	defer rows.Close()
 
-	var follows []model.Follow
+	follows := []model.Follow{}
 	for rows.Next() {
 		var follow model.Follow
-		if err := rows.Scan(&follow.FollowingID); err != nil {
+		if err := rows.Scan(&follow.FollowerID, &follow.FollowingID, &follow.CreatedAt); err != nil {
 			return nil, err
 		}
 		follows = append(follows, follow)
