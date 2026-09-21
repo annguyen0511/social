@@ -11,10 +11,10 @@ type Post struct {
 	Comments  []Comment `json:"comments"`
 	Version   int       `json:"version" db:"version"`
 	User      User      `json:"user"`
-}
+} //@name PostViewModel
 
 type FeedPost struct {
 	Post
 	CommentCount int64 `json:"comment_count"`
 	LikeCount    int64 `json:"like_count"`
-}
+} //@name FeedPostViewModel

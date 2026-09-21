@@ -28,13 +28,25 @@ func readJSON(w http.ResponseWriter, r *http.Request, data any) error {
 	return decoder.Decode(data)
 }
 
-func writeJSONError(w http.ResponseWriter, status int, message string) error {
-	type jsonError struct {
-		Error   bool   `json:"error"`
-		Message string `json:"message"`
-	}
+// JSONError is the body of every error response. It lives at package level so
+// the Swagger annotations can reference it.
+type JSONError struct {
+	Error   bool   `json:"error" example:"true"`
+	Message string `json:"message" example:"not found"`
+} //@name ErrorResponse
 
-	err := jsonError{
+// Response is the envelope jsonResponse wraps successful payloads in. The
+// server always sends Response[any]; swagger.go declares one named
+// instantiation per payload so the docs show a named schema for each.
+type Response[T any] struct {
+	Status    string `json:"status" example:"OK"`
+	Data      T      `json:"data"`
+	IsSuccess bool   `json:"is_success" example:"true"`
+	Message   string `json:"message,omitempty" example:"Success"`
+}
+
+func writeJSONError(w http.ResponseWriter, status int, message string) error {
+	err := JSONError{
 		Error:   true,
 		Message: message,
 	}
@@ -42,14 +54,7 @@ func writeJSONError(w http.ResponseWriter, status int, message string) error {
 }
 
 func (app *application) jsonResponse(w http.ResponseWriter, r *http.Request, status int, data any, message string) error {
-	type JSONResponse struct {
-		Status    string `json:"status"`
-		Data      any    `json:"data"`
-		IsSuccess bool   `json:"is_success"`
-		Message   string `json:"message,omitempty"`
-	}
-
-	resp := JSONResponse{
+	resp := Response[any]{
 		Status:    http.StatusText(status),
 		Data:      data,
 		IsSuccess: status >= 200 && status < 300,

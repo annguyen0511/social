@@ -46,13 +46,25 @@ func getUserFromContext(r *http.Request) (*model.User, bool) {
 }
 
 type createUserRequest struct {
-	FirstName string `json:"first_name" validate:"required"`
-	LastName  string `json:"last_name" validate:"required"`
-	Email     string `json:"email" validate:"required,email"`
-	UserName  string `json:"username" validate:"required"`
-	Password  string `json:"password" validate:"required"`
-}
+	FirstName string `json:"first_name" validate:"required" example:"An"`
+	LastName  string `json:"last_name" validate:"required" example:"Nguyen"`
+	Email     string `json:"email" validate:"required,email" example:"an.nguyen@example.com"`
+	UserName  string `json:"username" validate:"required" example:"an.nguyen"`
+	Password  string `json:"password" validate:"required" example:"password123"`
+} //@name UserRegisterModel
 
+// registerHandler godoc
+//
+//	@Summary		Register a user
+//	@Description	Creates a user account. Returns the user itself, not the Response envelope. The password is never included in any response.
+//	@Tags			User
+//	@Accept			json
+//	@Produce		json
+//	@Param			payload	body		createUserRequest	true	"Account to create"
+//	@Success		201		{object}	model.User
+//	@Failure		400		{object}	JSONError
+//	@Failure		500		{object}	JSONError
+//	@Router			/users/register [post]
 func (app *application) registerHandler(w http.ResponseWriter, r *http.Request) {
 	var req createUserRequest
 	if err := readJSON(w, r, &req); err != nil {
@@ -80,6 +92,17 @@ func (app *application) registerHandler(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// getUserHandler godoc
+//
+//	@Summary	Get a user
+//	@Tags		User
+//	@Produce	json
+//	@Param		userID	path		int	true	"User ID"
+//	@Success	200		{object}	UserViewModelResponse
+//	@Failure	400		{object}	JSONError
+//	@Failure	404		{object}	JSONError
+//	@Failure	500		{object}	JSONError
+//	@Router		/users/{userID} [get]
 func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 	user, ok := getUserFromContext(r)
 	if !ok {

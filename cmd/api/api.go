@@ -3,11 +3,14 @@ package main
 import (
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
+	"github.com/annguyen0511/social/docs" // This is required to generate swagger docs
 	"github.com/annguyen0511/social/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 type application struct {
@@ -19,6 +22,7 @@ type config struct {
 	addr     string
 	dbConfig dbConfig
 	env      string
+	apiURL   string
 }
 
 type dbConfig struct {
@@ -43,6 +47,10 @@ func (app *application) mount() *chi.Mux {
 
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/health", app.healthCheckHandler)
+
+		// Relative to /v1/swagger/index.html, so it resolves to
+		// /v1/swagger/doc.json on whatever host and port serves the page.
+		r.Get("/swagger/*", httpSwagger.Handler(httpSwagger.URL("doc.json")))
 
 		r.Route("/posts", func(r chi.Router) {
 			r.Post("/", app.createPostHandler)
@@ -96,6 +104,18 @@ func (app *application) mount() *chi.Mux {
 }
 
 func (app *application) run(mux *chi.Mux) error {
+
+	// This is required to set for swagger docs
+	docs.SwaggerInfo.Version = version
+	docs.SwaggerInfo.BasePath = "/v1"
+
+	// Swagger 2.0 wants host without the scheme ("localhost:8080"), and the
+	// scheme listed separately. Passing "http://localhost:8080" as the host
+	// makes "Try it out" call http://http://localhost:8080/v1/...
+	if u, err := url.Parse(app.config.apiURL); err == nil && u.Host != "" {
+		docs.SwaggerInfo.Host = u.Host
+		docs.SwaggerInfo.Schemes = []string{u.Scheme}
+	}
 
 	srv := http.Server{
 		Addr:         app.config.addr,

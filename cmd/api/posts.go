@@ -47,11 +47,23 @@ func getPostFromContext(r *http.Request) (*model.Post, bool) {
 }
 
 type createPostRequest struct {
-	Content string   `json:"content" validate:"required,max=1000"`
-	Title   string   `json:"title" validate:"required,max=100"`
-	Tags    []string `json:"tags"`
-}
+	Content string   `json:"content" validate:"required,max=1000" example:"Optimistic locking is one extra predicate in the WHERE clause."`
+	Title   string   `json:"title" validate:"required,max=100" example:"Optimistic locking in practice"`
+	Tags    []string `json:"tags" example:"go,postgres"`
+} //@name PostCreateModel
 
+// createPostHandler godoc
+//
+//	@Summary		Create a post
+//	@Description	Creates a post owned by the current user. Until auth exists the owner is always user 1.
+//	@Tags			Post
+//	@Accept			json
+//	@Produce		json
+//	@Param			payload	body		createPostRequest	true	"Post to create"
+//	@Success		201		{object}	PostViewModelResponse
+//	@Failure		400		{object}	JSONError
+//	@Failure		500		{object}	JSONError
+//	@Router			/posts [post]
 func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	var req createPostRequest
@@ -89,11 +101,26 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 }
 
 type updatePostRequest struct {
-	Title   *string   `json:"title" validate:"omitempty,max=100"`
-	Content *string   `json:"content" validate:"omitempty,max=1000"`
-	Tags    []*string `json:"tags" validate:"omitempty"`
-}
+	Title   *string   `json:"title" validate:"omitempty,max=100" example:"An updated title"`
+	Content *string   `json:"content" validate:"omitempty,max=1000" example:"Updated content."`
+	Tags    []*string `json:"tags" validate:"omitempty" example:"go,api"`
+} //@name PostUpdateModel
 
+// updatePostHandler godoc
+//
+//	@Summary		Update a post
+//	@Description	Partially updates a post: omitted fields keep their value. Guarded by optimistic locking on the version column, so a concurrent edit is rejected with 409.
+//	@Tags			Post
+//	@Accept			json
+//	@Produce		json
+//	@Param			postID	path		int					true	"Post ID"
+//	@Param			payload	body		updatePostRequest	true	"Fields to change"
+//	@Success		200		{object}	PostViewModelResponse
+//	@Failure		400		{object}	JSONError
+//	@Failure		404		{object}	JSONError
+//	@Failure		409		{object}	JSONError	"The post changed since it was read"
+//	@Failure		500		{object}	JSONError
+//	@Router			/posts/{postID} [patch]
 func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 	post, ok := getPostFromContext(r)
 	if !ok {
@@ -150,6 +177,18 @@ func (app *application) listPostsHandler(w http.ResponseWriter, r *http.Request)
 
 }
 
+// getPostHandler godoc
+//
+//	@Summary		Get a post
+//	@Description	Returns a post together with its comments, newest first.
+//	@Tags			Post
+//	@Produce		json
+//	@Param			postID	path		int	true	"Post ID"
+//	@Success		200		{object}	PostViewModelResponse
+//	@Failure		400		{object}	JSONError
+//	@Failure		404		{object}	JSONError
+//	@Failure		500		{object}	JSONError
+//	@Router			/posts/{postID} [get]
 func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	post, ok := getPostFromContext(r)
 	if !ok {
@@ -172,6 +211,18 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// deletePostHandler godoc
+//
+//	@Summary		Delete a post
+//	@Description	Deletes a post and, through ON DELETE CASCADE, its comments and likes.
+//	@Tags			Post
+//	@Produce		json
+//	@Param			postID	path	int	true	"Post ID"
+//	@Success		200		"Post deleted; the response has no body"
+//	@Failure		400		{object}	JSONError
+//	@Failure		404		{object}	JSONError
+//	@Failure		500		{object}	JSONError
+//	@Router			/posts/{postID} [delete]
 func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request) {
 	post, ok := getPostFromContext(r)
 	if !ok {

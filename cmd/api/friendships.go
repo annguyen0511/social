@@ -28,6 +28,19 @@ func (app *application) friendshipTarget(w http.ResponseWriter, r *http.Request)
 	return target, true
 }
 
+// followUserHandler godoc
+//
+//	@Summary		Follow a user
+//	@Description	Idempotent: following someone already followed still returns 200. Rejected with 403 while either user blocks the other.
+//	@Tags			Friendship
+//	@Produce		json
+//	@Param			userID	path		int	true	"ID of the user the action is aimed at, never the actor"
+//	@Success		200		{object}	MessageResponse
+//	@Failure		400		{object}	JSONError	"userID is not a number, or is the current user"
+//	@Failure		403		{object}	JSONError	"A block exists between the two users"
+//	@Failure		404		{object}	JSONError
+//	@Failure		500		{object}	JSONError
+//	@Router			/friend-ship/{userID}/follow [put]
 func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request) {
 	target, ok := app.friendshipTarget(w, r)
 	if !ok {
@@ -47,6 +60,18 @@ func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request
 	app.jsonResponse(w, r, http.StatusOK, nil, "user followed successfully")
 }
 
+// unfollowUserHandler godoc
+//
+//	@Summary		Unfollow a user
+//	@Description	Idempotent: unfollowing someone not followed still returns 200.
+//	@Tags			Friendship
+//	@Produce		json
+//	@Param			userID	path		int	true	"ID of the user the action is aimed at, never the actor"
+//	@Success		200		{object}	MessageResponse
+//	@Failure		400		{object}	JSONError	"userID is not a number, or is the current user"
+//	@Failure		404		{object}	JSONError
+//	@Failure		500		{object}	JSONError
+//	@Router			/friend-ship/{userID}/follow [delete]
 func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	target, ok := app.friendshipTarget(w, r)
 	if !ok {
@@ -61,6 +86,18 @@ func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Reque
 	app.jsonResponse(w, r, http.StatusOK, nil, "user unfollowed successfully")
 }
 
+// blockUserHandler godoc
+//
+//	@Summary		Block a user
+//	@Description	Severs the relationship in both directions in one transaction: removes follows and close friend entries either way, then records the block. Unblocking later does not restore them.
+//	@Tags			Friendship
+//	@Produce		json
+//	@Param			userID	path		int	true	"ID of the user the action is aimed at, never the actor"
+//	@Success		200		{object}	MessageResponse
+//	@Failure		400		{object}	JSONError	"userID is not a number, or is the current user"
+//	@Failure		404		{object}	JSONError
+//	@Failure		500		{object}	JSONError
+//	@Router			/friend-ship/{userID}/block [put]
 func (app *application) blockUserHandler(w http.ResponseWriter, r *http.Request) {
 	target, ok := app.friendshipTarget(w, r)
 	if !ok {
@@ -75,6 +112,18 @@ func (app *application) blockUserHandler(w http.ResponseWriter, r *http.Request)
 	app.jsonResponse(w, r, http.StatusOK, nil, "user blocked successfully")
 }
 
+// unblockUserHandler godoc
+//
+//	@Summary		Unblock a user
+//	@Description	Lifts the block only. Follows removed by the block are not restored.
+//	@Tags			Friendship
+//	@Produce		json
+//	@Param			userID	path		int	true	"ID of the user the action is aimed at, never the actor"
+//	@Success		200		{object}	MessageResponse
+//	@Failure		400		{object}	JSONError	"userID is not a number, or is the current user"
+//	@Failure		404		{object}	JSONError
+//	@Failure		500		{object}	JSONError
+//	@Router			/friend-ship/{userID}/block [delete]
 func (app *application) unblockUserHandler(w http.ResponseWriter, r *http.Request) {
 	target, ok := app.friendshipTarget(w, r)
 	if !ok {
@@ -89,6 +138,19 @@ func (app *application) unblockUserHandler(w http.ResponseWriter, r *http.Reques
 	app.jsonResponse(w, r, http.StatusOK, nil, "user unblocked successfully")
 }
 
+// addCloseFriendHandler godoc
+//
+//	@Summary		Add a close friend
+//	@Description	Idempotent. Rejected with 403 while either user blocks the other.
+//	@Tags			Friendship
+//	@Produce		json
+//	@Param			userID	path		int	true	"ID of the user the action is aimed at, never the actor"
+//	@Success		200		{object}	MessageResponse
+//	@Failure		400		{object}	JSONError	"userID is not a number, or is the current user"
+//	@Failure		403		{object}	JSONError	"A block exists between the two users"
+//	@Failure		404		{object}	JSONError
+//	@Failure		500		{object}	JSONError
+//	@Router			/friend-ship/{userID}/close-friend [put]
 func (app *application) addCloseFriendHandler(w http.ResponseWriter, r *http.Request) {
 	target, ok := app.friendshipTarget(w, r)
 	if !ok {
@@ -108,6 +170,18 @@ func (app *application) addCloseFriendHandler(w http.ResponseWriter, r *http.Req
 	app.jsonResponse(w, r, http.StatusOK, nil, "close friend added successfully")
 }
 
+// removeCloseFriendHandler godoc
+//
+//	@Summary		Remove a close friend
+//	@Description	Idempotent.
+//	@Tags			Friendship
+//	@Produce		json
+//	@Param			userID	path		int	true	"ID of the user the action is aimed at, never the actor"
+//	@Success		200		{object}	MessageResponse
+//	@Failure		400		{object}	JSONError	"userID is not a number, or is the current user"
+//	@Failure		404		{object}	JSONError
+//	@Failure		500		{object}	JSONError
+//	@Router			/friend-ship/{userID}/close-friend [delete]
 func (app *application) removeCloseFriendHandler(w http.ResponseWriter, r *http.Request) {
 	target, ok := app.friendshipTarget(w, r)
 	if !ok {
@@ -127,10 +201,22 @@ type friendshipStatus struct {
 	IsFollowing   bool  `json:"is_following"`
 	IsBlocking    bool  `json:"is_blocking"`
 	IsCloseFriend bool  `json:"is_close_friend"`
-}
+} //@name FriendshipStatusViewModel
 
 // friendshipStatusHandler reports how the current user relates to the user in
 // the route.
+// friendshipStatusHandler godoc
+//
+//	@Summary		Get friendship status
+//	@Description	How the current user relates to the user in the route.
+//	@Tags			Friendship
+//	@Produce		json
+//	@Param			userID	path		int	true	"ID of the user the action is aimed at, never the actor"
+//	@Success		200		{object}	FriendshipStatusViewModelResponse
+//	@Failure		400		{object}	JSONError	"userID is not a number, or is the current user"
+//	@Failure		404		{object}	JSONError
+//	@Failure		500		{object}	JSONError
+//	@Router			/friend-ship/{userID} [get]
 func (app *application) friendshipStatusHandler(w http.ResponseWriter, r *http.Request) {
 	target, ok := app.friendshipTarget(w, r)
 	if !ok {
@@ -169,6 +255,17 @@ func (app *application) friendshipStatusHandler(w http.ResponseWriter, r *http.R
 
 // The list handlers below describe the current user, so they carry no {userID}.
 
+// listFollowersHandler godoc
+//
+//	@Summary	List my followers
+//	@Tags		Friendship
+//	@Produce	json
+//	@Param		page		query		int	false	"Page number, starting at 1"	default(1)	minimum(1)
+//	@Param		page_size	query		int	false	"Items per page"				default(20)	minimum(1)	maximum(100)
+//	@Success	200			{object}	FollowViewModelPaginationResponse
+//	@Failure	400			{object}	JSONError	"page or page_size is not a positive integer, or page_size is over 100"
+//	@Failure	500			{object}	JSONError
+//	@Router		/friend-ship/followers [get]
 func (app *application) listFollowersHandler(w http.ResponseWriter, r *http.Request) {
 	page, err := readPagination(r)
 	if err != nil {
@@ -185,6 +282,17 @@ func (app *application) listFollowersHandler(w http.ResponseWriter, r *http.Requ
 	app.jsonResponse(w, r, http.StatusOK, newPagination(followers, page, total), "followers retrieved successfully")
 }
 
+// listFollowingHandler godoc
+//
+//	@Summary	List who I follow
+//	@Tags		Friendship
+//	@Produce	json
+//	@Param		page		query		int	false	"Page number, starting at 1"	default(1)	minimum(1)
+//	@Param		page_size	query		int	false	"Items per page"				default(20)	minimum(1)	maximum(100)
+//	@Success	200			{object}	FollowViewModelPaginationResponse
+//	@Failure	400			{object}	JSONError	"page or page_size is not a positive integer, or page_size is over 100"
+//	@Failure	500			{object}	JSONError
+//	@Router		/friend-ship/following [get]
 func (app *application) listFollowingHandler(w http.ResponseWriter, r *http.Request) {
 	page, err := readPagination(r)
 	if err != nil {
@@ -201,6 +309,17 @@ func (app *application) listFollowingHandler(w http.ResponseWriter, r *http.Requ
 	app.jsonResponse(w, r, http.StatusOK, newPagination(following, page, total), "following retrieved successfully")
 }
 
+// listBlockingHandler godoc
+//
+//	@Summary	List users I block
+//	@Tags		Friendship
+//	@Produce	json
+//	@Param		page		query		int	false	"Page number, starting at 1"	default(1)	minimum(1)
+//	@Param		page_size	query		int	false	"Items per page"				default(20)	minimum(1)	maximum(100)
+//	@Success	200			{object}	BlockViewModelPaginationResponse
+//	@Failure	400			{object}	JSONError	"page or page_size is not a positive integer, or page_size is over 100"
+//	@Failure	500			{object}	JSONError
+//	@Router		/friend-ship/blocking [get]
 func (app *application) listBlockingHandler(w http.ResponseWriter, r *http.Request) {
 	page, err := readPagination(r)
 	if err != nil {
@@ -217,6 +336,17 @@ func (app *application) listBlockingHandler(w http.ResponseWriter, r *http.Reque
 	app.jsonResponse(w, r, http.StatusOK, newPagination(blocking, page, total), "blocked users retrieved successfully")
 }
 
+// listCloseFriendsHandler godoc
+//
+//	@Summary	List my close friends (user IDs)
+//	@Tags		Friendship
+//	@Produce	json
+//	@Param		page		query		int	false	"Page number, starting at 1"	default(1)	minimum(1)
+//	@Param		page_size	query		int	false	"Items per page"				default(20)	minimum(1)	maximum(100)
+//	@Success	200			{object}	UserIDPaginationResponse
+//	@Failure	400			{object}	JSONError	"page or page_size is not a positive integer, or page_size is over 100"
+//	@Failure	500			{object}	JSONError
+//	@Router		/friend-ship/close-friends [get]
 func (app *application) listCloseFriendsHandler(w http.ResponseWriter, r *http.Request) {
 	page, err := readPagination(r)
 	if err != nil {

@@ -10,9 +10,26 @@ import (
 
 const version = "0.0.1"
 
+//	@title			Social Network API
+//	@version		0.0.1
+//	@description	API for building social network.
+//	@termsOfService	http://swagger.io/terms/
+
+//	@contact.name	API Support
+//	@contact.url	http://www.swagger.io/support
+//	@contact.email	support@swagger.io
+
+//	@license.name	Apache 2.0
+//	@license.url	http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @securityDefinitions.apikey	ApiKeyAuth
+// @in							header
+// @name						Authorization
+// @description				Enter your JWT token here to access protected, Example: "Bearer {token}"
 func main() {
 	cfg := config{
-		addr: env.GetString("ADDR", ":8080"),
+		addr:   env.GetString("ADDR", ":8080"),
+		apiURL: env.GetString("EXTERNAL_URL", "http://localhost:8080"),
 		dbConfig: dbConfig{
 			addr:         env.GetString("DB_ADDR", "postgres://localhost:5432/socialnetwork?sslmode=disable"),
 			maxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 30),
