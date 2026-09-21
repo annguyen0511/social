@@ -64,9 +64,9 @@ func (app *application) mount() *chi.Mux {
 				r.Get("/", app.getUserHandler)
 				// r.Patch("/",)
 			})
-			// r.Group(func(r chi.Router) {
-			// 	r.Get("feed", app.createCommentHandler)
-			// })
+			r.Group(func(r chi.Router) {
+				r.Get("/feed", app.getFeedHandler)
+			})
 		})
 
 		// The {userID} below is always the target of the action

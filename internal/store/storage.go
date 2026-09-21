@@ -23,6 +23,7 @@ type Storage struct {
 		Update(context.Context, *model.Post) error
 		GetById(context.Context, int64) (*model.Post, error)
 		Delete(context.Context, int64) error
+		GetUserFeed(context.Context, int64, PaginationQuery) ([]model.FeedPost, int64, error)
 	}
 
 	User interface {

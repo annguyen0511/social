@@ -121,3 +121,41 @@ func (s *PostStore) Delete(ctx context.Context, id int64) error {
 	return nil
 
 }
+
+// GetUserFeed returns the user's own posts plus posts by everyone they follow,
+// newest first. Blocked users never appear: blocking removes the follow in both
+// directions, so their posts drop out of the follow subquery on their own.
+func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
+	// A subquery rather than JOIN follows: an inner join drops the user's own
+	// posts when they follow nobody, and joins each own post to every follows
+	// row otherwise, which multiplies COUNT(c.id).
+	feedFilter := `
+	p.user_id = $1
+	OR p.user_id IN (SELECT following_id FROM follows WHERE follower_id = $1)
+	`
+
+	countQuery := `SELECT COUNT(*) FROM posts p WHERE ` + feedFilter
+	pageQuery := `
+	SELECT
+		p.id, p.user_id, u.username, p.title, p.content, p.tags,
+		p.created_at, p.updated_at, p.version,
+		(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
+		(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count
+	FROM posts p
+	JOIN users u ON u.id = p.user_id
+	WHERE ` + feedFilter + `
+	ORDER BY p.created_at DESC, p.id DESC
+	LIMIT $2 OFFSET $3
+	`
+
+	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{userID}, func(rows *sql.Rows) (model.FeedPost, error) {
+		var post model.FeedPost
+		err := rows.Scan(
+			&post.ID, &post.UserID, &post.User.UserName, &post.Title, &post.Content, pq.Array(&post.Tags),
+			&post.CreatedAt, &post.UpdatedAt, &post.Version,
+			&post.CommentCount, &post.LikeCount,
+		)
+		post.User.ID = post.UserID
+		return post, err
+	})
+}

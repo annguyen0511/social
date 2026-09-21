@@ -10,4 +10,11 @@ type Post struct {
 	UpdatedAt string    `json:"updated_at" db:"updated_at"`
 	Comments  []Comment `json:"comments"`
 	Version   int       `json:"version" db:"version"`
+	User      User      `json:"user"`
+}
+
+type FeedPost struct {
+	Post
+	CommentCount int64 `json:"comment_count"`
+	LikeCount    int64 `json:"like_count"`
 }
