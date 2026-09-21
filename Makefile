@@ -1,4 +1,6 @@
-include .envrc
+# Không bắt buộc: clone mới chưa có .envrc vẫn chạy được build/run/gen-docs.
+# Các lệnh migrate-* và seed thì cần nó (cp .envrc.example .envrc).
+-include .envrc
 
 MIGRATIONS_DIR = cmd/migrate/migrations
 
