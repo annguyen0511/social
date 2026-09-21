@@ -38,20 +38,20 @@ type Storage struct {
 	Follow interface {
 		Follow(context.Context, int64, int64) error
 		Unfollow(context.Context, int64, int64) error
-		GetFollowers(context.Context, int64) ([]model.Follow, error)
-		GetFollowing(context.Context, int64) ([]model.Follow, error)
+		GetFollowers(context.Context, int64, PaginationQuery) ([]model.Follow, int64, error)
+		GetFollowing(context.Context, int64, PaginationQuery) ([]model.Follow, int64, error)
 		IsFollowing(context.Context, int64, int64) (bool, error)
 	}
 	Block interface {
 		Block(ctx context.Context, blockerId int64, blockedId int64) error
 		Unblock(ctx context.Context, blockerId int64, blockedId int64) error
-		ListBlocking(ctx context.Context, blockerId int64) ([]model.Block, error)
+		ListBlocking(ctx context.Context, blockerId int64, page PaginationQuery) ([]model.Block, int64, error)
 		IsBlocking(ctx context.Context, blockerId int64, blockedId int64) (bool, error)
 	}
 	CloseFriend interface {
 		Add(ctx context.Context, userID int64, friendID int64) error
 		Remove(ctx context.Context, userID int64, friendID int64) error
-		List(ctx context.Context, userID int64) ([]int64, error)
+		List(ctx context.Context, userID int64, page PaginationQuery) ([]int64, int64, error)
 		IsCloseFriend(ctx context.Context, userID, friendID int64) (bool, error)
 	}
 }

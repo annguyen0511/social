@@ -84,32 +84,21 @@ func (s *BlockStore) Unblock(ctx context.Context, blockerId int64, blockedId int
 	return nil
 }
 
-func (s *BlockStore) ListBlocking(ctx context.Context, blockerId int64) ([]model.Block, error) {
-	query := `
+func (s *BlockStore) ListBlocking(ctx context.Context, blockerId int64, page PaginationQuery) ([]model.Block, int64, error) {
+	countQuery := `SELECT COUNT(*) FROM blocks WHERE blocker_id = $1`
+	pageQuery := `
 	SELECT blocker_id, blocked_id, created_at
 	FROM blocks
 	WHERE blocker_id = $1
+	ORDER BY created_at DESC, blocked_id DESC
+	LIMIT $2 OFFSET $3
 	`
 
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
-	defer cancel()
-
-	rows, err := s.db.QueryContext(ctx, query, blockerId)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	blocks := []model.Block{}
-	for rows.Next() {
+	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{blockerId}, func(rows *sql.Rows) (model.Block, error) {
 		var block model.Block
-		if err := rows.Scan(&block.BlockerID, &block.BlockedID, &block.CreatedAt); err != nil {
-			return nil, err
-		}
-		blocks = append(blocks, block)
-	}
-
-	return blocks, nil
+		err := rows.Scan(&block.BlockerID, &block.BlockedID, &block.CreatedAt)
+		return block, err
+	})
 }
 
 func (s *BlockStore) IsBlocking(ctx context.Context, blockerId int64, blockedId int64) (bool, error) {

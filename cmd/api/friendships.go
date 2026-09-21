@@ -170,41 +170,65 @@ func (app *application) friendshipStatusHandler(w http.ResponseWriter, r *http.R
 // The list handlers below describe the current user, so they carry no {userID}.
 
 func (app *application) listFollowersHandler(w http.ResponseWriter, r *http.Request) {
-	followers, err := app.store.Follow.GetFollowers(r.Context(), currentUserID)
+	page, err := readPagination(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	followers, total, err := app.store.Follow.GetFollowers(r.Context(), currentUserID, page)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
 
-	app.jsonResponse(w, r, http.StatusOK, followers, "followers retrieved successfully")
+	app.jsonResponse(w, r, http.StatusOK, newPagination(followers, page, total), "followers retrieved successfully")
 }
 
 func (app *application) listFollowingHandler(w http.ResponseWriter, r *http.Request) {
-	following, err := app.store.Follow.GetFollowing(r.Context(), currentUserID)
+	page, err := readPagination(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	following, total, err := app.store.Follow.GetFollowing(r.Context(), currentUserID, page)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
 
-	app.jsonResponse(w, r, http.StatusOK, following, "following retrieved successfully")
+	app.jsonResponse(w, r, http.StatusOK, newPagination(following, page, total), "following retrieved successfully")
 }
 
 func (app *application) listBlockingHandler(w http.ResponseWriter, r *http.Request) {
-	blocking, err := app.store.Block.ListBlocking(r.Context(), currentUserID)
+	page, err := readPagination(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	blocking, total, err := app.store.Block.ListBlocking(r.Context(), currentUserID, page)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
 
-	app.jsonResponse(w, r, http.StatusOK, blocking, "blocked users retrieved successfully")
+	app.jsonResponse(w, r, http.StatusOK, newPagination(blocking, page, total), "blocked users retrieved successfully")
 }
 
 func (app *application) listCloseFriendsHandler(w http.ResponseWriter, r *http.Request) {
-	friendIDs, err := app.store.CloseFriend.List(r.Context(), currentUserID)
+	page, err := readPagination(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	friendIDs, total, err := app.store.CloseFriend.List(r.Context(), currentUserID, page)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
 
-	app.jsonResponse(w, r, http.StatusOK, friendIDs, "close friends retrieved successfully")
+	app.jsonResponse(w, r, http.StatusOK, newPagination(friendIDs, page, total), "close friends retrieved successfully")
 }

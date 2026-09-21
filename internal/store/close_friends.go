@@ -55,32 +55,21 @@ func (s *CloseFriendStore) Remove(ctx context.Context, userID int64, friendID in
 	return nil
 }
 
-func (s *CloseFriendStore) List(ctx context.Context, userID int64) ([]int64, error) {
-	query := `
+func (s *CloseFriendStore) List(ctx context.Context, userID int64, page PaginationQuery) ([]int64, int64, error) {
+	countQuery := `SELECT COUNT(*) FROM close_friends WHERE user_id = $1`
+	pageQuery := `
 	SELECT friend_id
 	FROM close_friends
 	WHERE user_id = $1
+	ORDER BY created_at DESC, friend_id DESC
+	LIMIT $2 OFFSET $3
 	`
 
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
-	defer cancel()
-
-	rows, err := s.db.QueryContext(ctx, query, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	friendIDs := []int64{}
-	for rows.Next() {
+	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{userID}, func(rows *sql.Rows) (int64, error) {
 		var friendID int64
-		if err := rows.Scan(&friendID); err != nil {
-			return nil, err
-		}
-		friendIDs = append(friendIDs, friendID)
-	}
-
-	return friendIDs, nil
+		err := rows.Scan(&friendID)
+		return friendID, err
+	})
 }
 
 func (s *CloseFriendStore) IsCloseFriend(ctx context.Context, userID, friendID int64) (bool, error) {

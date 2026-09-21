@@ -57,60 +57,36 @@ func (s *FollowStore) Unfollow(ctx context.Context, followerId int64, followingI
 	return nil
 }
 
-func (s *FollowStore) GetFollowers(ctx context.Context, followingId int64) ([]model.Follow, error) {
-	query := `
+func (s *FollowStore) GetFollowers(ctx context.Context, followingId int64, page PaginationQuery) ([]model.Follow, int64, error) {
+	countQuery := `SELECT COUNT(*) FROM follows WHERE following_id = $1`
+	pageQuery := `
 	SELECT follower_id, following_id, created_at
 	FROM follows
 	WHERE following_id = $1
+	ORDER BY created_at DESC, follower_id DESC
+	LIMIT $2 OFFSET $3
 	`
 
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
-	defer cancel()
-
-	rows, err := s.db.QueryContext(ctx, query, followingId)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	follows := []model.Follow{}
-	for rows.Next() {
-		var follow model.Follow
-		if err := rows.Scan(&follow.FollowerID, &follow.FollowingID, &follow.CreatedAt); err != nil {
-			return nil, err
-		}
-		follows = append(follows, follow)
-	}
-
-	return follows, nil
+	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{followingId}, scanFollow)
 }
 
-func (s *FollowStore) GetFollowing(ctx context.Context, followerId int64) ([]model.Follow, error) {
-	query := `
+func (s *FollowStore) GetFollowing(ctx context.Context, followerId int64, page PaginationQuery) ([]model.Follow, int64, error) {
+	countQuery := `SELECT COUNT(*) FROM follows WHERE follower_id = $1`
+	pageQuery := `
 	SELECT follower_id, following_id, created_at
 	FROM follows
 	WHERE follower_id = $1
+	ORDER BY created_at DESC, following_id DESC
+	LIMIT $2 OFFSET $3
 	`
 
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
-	defer cancel()
+	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{followerId}, scanFollow)
+}
 
-	rows, err := s.db.QueryContext(ctx, query, followerId)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	follows := []model.Follow{}
-	for rows.Next() {
-		var follow model.Follow
-		if err := rows.Scan(&follow.FollowerID, &follow.FollowingID, &follow.CreatedAt); err != nil {
-			return nil, err
-		}
-		follows = append(follows, follow)
-	}
-
-	return follows, nil
+func scanFollow(rows *sql.Rows) (model.Follow, error) {
+	var follow model.Follow
+	err := rows.Scan(&follow.FollowerID, &follow.FollowingID, &follow.CreatedAt)
+	return follow, err
 }
 
 func (s *FollowStore) IsFollowing(ctx context.Context, followerId int64, followingId int64) (bool, error) {
