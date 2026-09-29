@@ -80,8 +80,13 @@ func (app *application) registerHandler(w http.ResponseWriter, r *http.Request) 
 		LastName:  req.LastName,
 		Email:     req.Email,
 		UserName:  req.UserName,
-		Password:  req.Password,
 	}
+
+	if err := user.Password.SetPassword(req.Password); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
 	if err := app.store.User.Create(r.Context(), &user); err != nil {
 		app.internalServerError(w, r, err)
 		return

@@ -14,8 +14,8 @@ type UserStore struct {
 
 func (u *UserStore) Create(ctx context.Context, user *model.User) error {
 	query := `
-	INSERT INTO users (first_name, last_name, avatar_url, username, email, password)
-	VALUES ($1, $2, $3, $4, $5, $6)
+	INSERT INTO users (first_name, last_name, avatar_url, username, email, password, is_active)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
 	RETURNING id, created_at, updated_at
 	`
 
@@ -30,7 +30,8 @@ func (u *UserStore) Create(ctx context.Context, user *model.User) error {
 		user.AvatarURL,
 		user.UserName,
 		user.Email,
-		user.Password,
+		user.Password.Hashed,
+		user.IsActive,
 	).
 		Scan(
 			&user.ID,
@@ -64,7 +65,7 @@ func (u *UserStore) Update(ctx context.Context, user *model.User) error {
 func (u *UserStore) GetById(ctx context.Context, id int64) (*model.User, error) {
 	var user model.User
 	query := `
-	SELECT id, first_name, last_name, COALESCE(avatar_url, ''), username, email, password, created_at, updated_at
+	SELECT id, first_name, last_name, COALESCE(avatar_url, ''), username, email, password, is_active, created_at, updated_at
 	FROM users
 	WHERE id = $1
 	`
@@ -79,7 +80,8 @@ func (u *UserStore) GetById(ctx context.Context, id int64) (*model.User, error) 
 		&user.AvatarURL,
 		&user.UserName,
 		&user.Email,
-		&user.Password,
+		&user.Password.Hashed,
+		&user.IsActive,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)

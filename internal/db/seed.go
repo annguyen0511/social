@@ -13,8 +13,8 @@ import (
 )
 
 // seedPassword is the plaintext password given to every generated user, so a
-// seeded account can be logged into during local development. Hash this once
-// registerHandler hashes passwords.
+// seeded account can be logged into during local development. It is stored
+// bcrypt-hashed, like any other account.
 const seedPassword = "password123"
 
 var firstNames = []string{
@@ -129,7 +129,13 @@ func seedUsers(ctx context.Context, s store.Storage, n int) ([]*model.User, erro
 			AvatarURL: fmt.Sprintf("https://i.pravatar.cc/150?u=%s", handle),
 			UserName:  handle,
 			Email:     handle + "@example.com",
-			Password:  seedPassword,
+			// Seeded accounts skip the invitation flow so they are usable
+			// right away.
+			// Tài khoản seed bỏ qua luồng mời để dùng được ngay.
+			IsActive: true,
+		}
+		if err := user.Password.SetPassword(seedPassword); err != nil {
+			return nil, fmt.Errorf("hash password for %q: %w", handle, err)
 		}
 
 		if err := s.User.Create(ctx, user); err != nil {
