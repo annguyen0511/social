@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/annguyen0511/social/internal/db"
 	"github.com/annguyen0511/social/internal/env"
 	"github.com/annguyen0511/social/internal/store"
@@ -35,7 +37,8 @@ func main() {
 			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 10),
 			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
 		},
-		env: env.GetString("ENV", "development"),
+		env:           env.GetString("ENV", "development"),
+		invitationExp: env.GetDuration("INVITATION_EXP", 3*24*time.Hour),
 	}
 
 	//logger

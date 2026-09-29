@@ -10,6 +10,8 @@ import "github.com/annguyen0511/social/internal/model"
 
 type MessageResponse Response[any] //@name MessageResponse
 
+type UserRegisteredViewModelResponse Response[registeredUser] //@name UserRegisteredViewModelResponse
+
 type PostViewModelResponse Response[model.Post]                   //@name PostViewModelResponse
 type UserViewModelResponse Response[model.User]                   //@name UserViewModelResponse
 type FriendshipStatusViewModelResponse Response[friendshipStatus] //@name FriendshipStatusViewModelResponse

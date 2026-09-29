@@ -24,6 +24,9 @@ type config struct {
 	dbConfig dbConfig
 	env      string
 	apiURL   string
+	// invitationExp is how long a registration invitation stays valid.
+	// invitationExp là thời gian một lời mời đăng ký còn hiệu lực.
+	invitationExp time.Duration
 }
 
 type dbConfig struct {
@@ -53,6 +56,12 @@ func (app *application) mount() *chi.Mux {
 		// /v1/swagger/doc.json on whatever host and port serves the page.
 		r.Get("/swagger/*", httpSwagger.Handler(httpSwagger.URL("doc.json")))
 
+		r.Route("/authentication", func(r chi.Router) {
+			r.Post("/register", app.registerHandler)
+			r.Put("/activate/{token}", app.activateUserHandler)
+			// r.Post("/login", app.loginHandler)
+		})
+
 		r.Route("/posts", func(r chi.Router) {
 			r.Post("/", app.createPostHandler)
 			r.Route("/{postID}", func(r chi.Router) {
@@ -65,7 +74,6 @@ func (app *application) mount() *chi.Mux {
 			})
 		})
 		r.Route("/users", func(r chi.Router) {
-			r.Post("/register", app.registerHandler)
 			// r.Post("/login", app.loginHandler)
 			r.Route("/{userID}", func(r chi.Router) {
 				r.Use(app.userContextMiddleware)
