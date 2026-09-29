@@ -14,6 +14,9 @@ var (
 	ErrConflict = errors.New("resource conflict")
 	ErrBlocked  = errors.New("a block exists between the two users")
 
+	ErrDuplicateEmail    = errors.New("a user with that email already exists")
+	ErrDuplicateUsername = errors.New("a user with that username already exists")
+
 	QueryTimeoutDuration = time.Second * 5
 )
 
@@ -28,6 +31,8 @@ type Storage struct {
 
 	User interface {
 		Create(context.Context, *model.User) error
+		CreateAndInvited(context.Context, *model.User, string, time.Duration) error
+		Activate(context.Context, string) error
 		Update(context.Context, *model.User) error
 		GetById(context.Context, int64) (*model.User, error)
 	}
@@ -66,4 +71,29 @@ func NewStorage(db *sql.DB) Storage {
 		Block:       &BlockStore{db},
 		CloseFriend: &CloseFriendStore{db},
 	}
+}
+
+// withTx runs fn inside a transaction: fn returning nil commits, any error
+// rolls back. The deferred Rollback is a no-op after a successful Commit, and
+// it is what releases the connection if fn panics — middleware.Recoverer would
+// otherwise keep the server alive with a connection stuck "idle in
+// transaction", still holding its locks.
+//
+// withTx chạy fn bên trong một transaction: fn trả về nil thì commit, trả về
+// lỗi thì rollback. Lệnh Rollback trong defer không làm gì sau khi Commit
+// thành công, và nó chính là thứ trả connection về pool khi fn panic — nếu
+// không, middleware.Recoverer sẽ giữ server sống với một connection kẹt ở
+// trạng thái "idle in transaction" và vẫn đang giữ khoá.
+func withTx(ctx context.Context, db *sql.DB, fn func(*sql.Tx) error) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
