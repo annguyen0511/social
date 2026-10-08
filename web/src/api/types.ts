@@ -1,0 +1,57 @@
+// Shapes the Go API returns. Hand-written for now; once a client is generated
+// from docs/swagger.json these can be replaced by the generated types.
+//
+// Các kiểu dữ liệu API Go trả về. Hiện viết tay; khi nào sinh client từ
+// docs/swagger.json thì thay bằng kiểu sinh tự động.
+
+export type Envelope<T> = {
+  status: string
+  data: T
+  is_success: boolean
+  message?: string
+}
+
+export type ApiError = {
+  error: boolean
+  message: string
+}
+
+export type Pagination<T> = {
+  items: T[]
+  page: number
+  page_size: number
+  total_items: number
+  total_pages: number
+}
+
+export type User = {
+  id: number
+  first_name: string
+  last_name: string
+  avatar_url: string
+  username: string
+  email: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type FeedPost = {
+  id: number
+  title: string
+  content: string
+  user_id: number
+  tags: string[] | null
+  user: User
+  comment_count: number
+  like_count: number
+  created_at: string
+  version: number
+}
+
+export type RegisteredUser = {
+  user: User
+  // Only present outside production, where the API has no mailer to send it.
+  // Chỉ có khi chạy ngoài production, nơi API chưa có mailer để gửi đi.
+  token?: string
+}
