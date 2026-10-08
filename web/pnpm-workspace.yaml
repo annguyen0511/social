@@ -1,0 +1,9 @@
+# pnpm chặn script cài đặt (postinstall) theo mặc định, vì package độc hại hay
+# lợi dụng chúng. esbuild cần script đó để lấy binary của nền tảng, nên mở cho
+# riêng nó, khai báo tường minh để mọi máy cài ra cùng một kết quả.
+#
+# pnpm blocks install scripts by default because malicious packages abuse them.
+# esbuild needs one to fetch its platform binary, so it is allowed explicitly,
+# which also keeps every machine installing the same way.
+allowBuilds:
+  esbuild: true
