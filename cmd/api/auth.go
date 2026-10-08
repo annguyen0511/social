@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/annguyen0511/social/internal/model"
@@ -51,7 +52,7 @@ func newInvitationToken() (string, error) {
 // registerHandler godoc
 //
 //	@Summary		Register a user
-//	@Description	Creates an inactive account and the invitation that activates it, in one transaction. The password is stored bcrypt-hashed and never returned. The plaintext token is echoed back only outside production, standing in for the activation email until a mailer exists.
+//	@Description	Creates an inactive account and the invitation that activates it, in one transaction, then emails the activation link. If the mail cannot be sent the registration is rolled back. The password is stored bcrypt-hashed and never returned. The plaintext token is echoed back outside production so the flow can be tested without a mailbox.
 //	@Tags			Authentication
 //	@Accept			json
 //	@Produce		json
@@ -94,7 +95,7 @@ func (app *application) registerHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := app.store.User.CreateAndInvited(r.Context(), user, token, app.config.invitationExp); err != nil {
+	if err := app.store.User.CreateAndInvited(r.Context(), user, token, app.config.mail.exp); err != nil {
 		switch {
 		case errors.Is(err, store.ErrDuplicateEmail), errors.Is(err, store.ErrDuplicateUsername):
 			app.conflictResponse(w, r, err)
@@ -104,15 +105,42 @@ func (app *application) registerHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Stand-in for the activation email until a mailer exists: the token is
-	// echoed back outside production, and logged so it can be recovered.
+	// The mail goes out after the transaction commits: holding a database
+	// transaction open across a network call to SendGrid would pin a
+	// connection and its locks for the whole round trip.
 	//
-	// Thay tạm cho email kích hoạt khi chưa có mailer: token được trả lại
-	// trong response khi chạy ngoài production, và ghi log để tra lại được.
+	// Mail được gửi sau khi transaction commit: giữ transaction mở suốt một
+	// lượt gọi mạng tới SendGrid sẽ ghim connection cùng các khoá của nó
+	// trong toàn bộ thời gian chờ.
+	activationURL := fmt.Sprintf("%s/confirm/%s", app.config.mail.frontendURL, token)
+	if err := app.mailer.SendActivation(user.Email, user.UserName, activationURL); err != nil {
+		// Undo the registration. Keeping the account would hold its email
+		// and username while no activation link exists to unlock it, and the
+		// person could not register again.
+		//
+		// Huỷ việc đăng ký. Giữ lại tài khoản sẽ chiếm mất email và username
+		// trong khi không có đường dẫn kích hoạt nào để mở khoá, và người
+		// dùng cũng không đăng ký lại được.
+		app.logger.Errorw("activation mail failed, rolling back registration",
+			"user_id", user.ID, "email", user.Email, "error", err)
+
+		if delErr := app.store.User.Delete(r.Context(), user.ID); delErr != nil {
+			app.logger.Errorw("rollback failed, user left unactivatable",
+				"user_id", user.ID, "error", delErr)
+		}
+
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	// Outside production the token also comes back in the response, so the
+	// flow can be exercised without opening a mailbox.
+	//
+	// Ngoài production, token còn được trả lại trong response để chạy thử
+	// luồng này mà không cần mở hòm thư.
 	body := registeredUser{User: *user}
 	if app.config.env != "production" {
 		body.Token = token
-		app.logger.Infow("invitation created", "user_id", user.ID, "token", token)
 	}
 
 	app.jsonResponse(w, r, http.StatusCreated, body, "user registered successfully")

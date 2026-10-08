@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/annguyen0511/social/docs" // This is required to generate swagger docs
+	"github.com/annguyen0511/social/internal/mailer"
 	"github.com/annguyen0511/social/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -17,6 +18,7 @@ type application struct {
 	config config
 	store  store.Storage
 	logger *zap.SugaredLogger
+	mailer mailer.Client
 }
 
 type config struct {
@@ -24,9 +26,27 @@ type config struct {
 	dbConfig dbConfig
 	env      string
 	apiURL   string
-	// invitationExp is how long a registration invitation stays valid.
-	// invitationExp là thời gian một lời mời đăng ký còn hiệu lực.
-	invitationExp time.Duration
+	mail     mailConfig
+}
+
+type mailConfig struct {
+	exp       time.Duration
+	fromEmail string
+	fromName  string
+	sendGrid  sendGridConfig
+	// frontendURL is where the activation link points. The API endpoint is a
+	// PUT, which a mail client cannot follow, so the link goes to a page that
+	// calls it.
+	//
+	// frontendURL là nơi đường dẫn kích hoạt trỏ tới. Endpoint của API là PUT
+	// mà trình đọc mail không gọi được, nên link trỏ tới một trang rồi trang
+	// đó gọi API.
+	frontendURL string
+}
+
+type sendGridConfig struct {
+	apiKey  string
+	sandbox bool
 }
 
 type dbConfig struct {

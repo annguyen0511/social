@@ -5,6 +5,7 @@ import (
 
 	"github.com/annguyen0511/social/internal/db"
 	"github.com/annguyen0511/social/internal/env"
+	"github.com/annguyen0511/social/internal/mailer"
 	"github.com/annguyen0511/social/internal/store"
 	"go.uber.org/zap"
 )
@@ -37,8 +38,22 @@ func main() {
 			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 10),
 			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
 		},
-		env:           env.GetString("ENV", "development"),
-		invitationExp: env.GetDuration("INVITATION_EXP", 3*24*time.Hour),
+		env: env.GetString("ENV", "development"),
+		mail: mailConfig{
+			exp:         env.GetDuration("INVITATION_EXP", 3*24*time.Hour),
+			fromEmail:   env.GetString("MAIL_FROM_EMAIL", "no-reply@example.com"),
+			fromName:    env.GetString("MAIL_FROM_NAME", "Social Network"),
+			frontendURL: env.GetString("FRONTEND_URL", "http://localhost:5173"),
+			sendGrid: sendGridConfig{
+				apiKey: env.GetString("SENDGRID_API_KEY", ""),
+				// Sandbox lets SendGrid validate the request and answer 200
+				// without delivering, so development never mails real people.
+				//
+				// Sandbox để SendGrid kiểm tra request rồi trả 200 mà không
+				// gửi đi, nên lúc dev không bao giờ làm phiền người thật.
+				sandbox: env.GetBool("MAIL_SANDBOX", true),
+			},
+		},
 	}
 
 	//logger
@@ -55,6 +70,24 @@ func main() {
 
 	defer db.Close()
 
+	// mailer
+	var mailClient mailer.Client
+	switch {
+	case cfg.mail.sendGrid.apiKey != "":
+		mailClient = mailer.NewSendGrid(cfg.mail.sendGrid.apiKey, cfg.mail.fromEmail, cfg.mail.fromName, cfg.mail.sendGrid.sandbox)
+		logger.Infow("mailer ready", "provider", "sendgrid", "sandbox", cfg.mail.sendGrid.sandbox)
+	case cfg.env == "production":
+		// Refusing to boot beats accepting registrations whose activation
+		// mail silently goes nowhere.
+		//
+		// Thà không khởi động được còn hơn nhận đăng ký rồi thư kích hoạt
+		// lặng lẽ không đi đâu cả.
+		logger.Fatal("SENDGRID_API_KEY is required when ENV=production")
+	default:
+		mailClient = mailer.NewLog(logger.Infow)
+		logger.Warnw("SENDGRID_API_KEY not set, activation links will only be logged")
+	}
+
 	logger.Infoln("database connection pool establised")
 	store := store.NewStorage(db)
 
@@ -62,6 +95,7 @@ func main() {
 		config: cfg,
 		store:  store,
 		logger: logger,
+		mailer: mailClient,
 	}
 
 	mux := app.mount()

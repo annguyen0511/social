@@ -1,2 +1,11 @@
 export ADDR=":8080"
 export DB_ADDR="postgres://<user>:<password>@localhost:5432/socialnetwork?sslmode=disable"
+
+# Mail (SendGrid). Without SENDGRID_API_KEY the activation link is only logged;
+# ENV=production refuses to start without it.
+export SENDGRID_API_KEY=""
+export MAIL_FROM_EMAIL="no-reply@example.com"
+export MAIL_FROM_NAME="Social Network"
+export MAIL_SANDBOX="true"
+export FRONTEND_URL="http://localhost:5173"
+export INVITATION_EXP="72h"
