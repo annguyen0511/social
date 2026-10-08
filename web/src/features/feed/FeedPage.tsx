@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useInfiniteQuery, useMutation } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { HttpError, get, post } from '../../api/client'
 import type { FeedPost, Pagination } from '../../api/types'
 
@@ -18,17 +18,29 @@ import type { FeedPost, Pagination } from '../../api/types'
  */
 export function FeedPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const query = useInfiniteQuery({
     queryKey: ['feed'],
     initialPageParam: 1,
-    queryFn: ({ pageParam }) => get<Pagination<FeedPost>>(`/v1/users/feed?page=${pageParam}&page_size=20`),
+    queryFn: ({ pageParam, signal }) =>
+      get<Pagination<FeedPost>>(`/v1/users/feed?page=${pageParam}&page_size=20`, signal),
     getNextPageParam: (last) => (last.page < last.total_pages ? last.page + 1 : undefined),
   })
 
   const logout = useMutation({
     mutationFn: () => post<null>('/v1/authentication/logout'),
-    onSuccess: () => navigate('/login'),
+    onSuccess: () => {
+      // The cache lives in memory and does not follow the session cookie out.
+      // Without this, whoever signs in next on this machine sees the previous
+      // person's feed for the moment before the new requests land.
+      //
+      // Cache nằm trong RAM và không mất đi theo cookie phiên. Thiếu dòng này,
+      // người đăng nhập tiếp theo trên cùng máy sẽ thấy feed của người trước
+      // trong khoảnh khắc trước khi các request mới về.
+      queryClient.clear()
+      navigate('/login')
+    },
   })
 
   // A 401 means the session is gone: expired, logged out in another tab, or

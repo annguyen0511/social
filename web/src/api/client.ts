@@ -63,7 +63,18 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T
 }
 
-export const get = <T>(path: string) => api<T>(path)
+/**
+ * Reads. The signal comes from queryFn: passing it through lets Query abort a
+ * request whose answer nobody wants any more — the component unmounted, or the
+ * queryKey changed because the filter moved on. Without it a slow response can
+ * still arrive late and overwrite a newer one.
+ *
+ * Đọc dữ liệu. signal đến từ queryFn: chuyển tiếp nó xuống giúp Query huỷ một
+ * request mà không ai cần kết quả nữa — component đã rời màn hình, hoặc
+ * queryKey đã đổi vì người dùng chuyển bộ lọc. Thiếu nó thì một response chậm
+ * vẫn về muộn và ghi đè lên kết quả mới hơn.
+ */
+export const get = <T>(path: string, signal?: AbortSignal) => api<T>(path, { signal })
 export const post = <T>(path: string, data?: unknown) =>
   api<T>(path, { method: 'POST', body: data === undefined ? undefined : JSON.stringify(data) })
 export const put = <T>(path: string, data?: unknown) =>
