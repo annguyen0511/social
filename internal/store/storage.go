@@ -36,6 +36,7 @@ type Storage struct {
 		Delete(context.Context, int64) error
 		Update(context.Context, *model.User) error
 		GetById(context.Context, int64) (*model.User, error)
+		GetByEmail(context.Context, string) (*model.User, error)
 	}
 
 	Comment interface {

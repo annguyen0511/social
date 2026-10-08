@@ -210,6 +210,47 @@ func (u *UserStore) userIDFromInvitation(ctx context.Context, tx *sql.Tx, token 
 	return userID, nil
 }
 
+// GetByEmail loads the account that logs in with this address, hash included.
+// Email is a citext column so the lookup is case insensitive, which matches
+// what people expect when typing their address.
+//
+// GetByEmail lấy tài khoản đăng nhập bằng địa chỉ này, kèm cả hash mật khẩu.
+// Cột email có kiểu citext nên tra cứu không phân biệt hoa thường, đúng như
+// người dùng mong đợi khi gõ địa chỉ của mình.
+func (u *UserStore) GetByEmail(ctx context.Context, email string) (*model.User, error) {
+	var user model.User
+	query := `
+	SELECT id, first_name, last_name, COALESCE(avatar_url, ''), username, email, password, is_active, created_at, updated_at
+	FROM users
+	WHERE email = $1
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	err := u.db.QueryRowContext(ctx, query, email).Scan(
+		&user.ID,
+		&user.FirstName,
+		&user.LastName,
+		&user.AvatarURL,
+		&user.UserName,
+		&user.Email,
+		&user.Password.Hashed,
+		&user.IsActive,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 func (u *UserStore) Update(ctx context.Context, user *model.User) error {
 	query := `
 	UPDATE users
