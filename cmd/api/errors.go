@@ -17,6 +17,20 @@ func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Reques
 	writeJSONError(w, http.StatusBadRequest, err.Error())
 }
 
+func (app *application) unauthorizedResponse(w http.ResponseWriter, r *http.Request, err error) {
+	app.logger.Warnw("unauthorized error", "method", r.Method, "path", r.URL.Path, "error", err.Error())
+
+	// The reason never reaches the client: "no such email" and "wrong
+	// password" must look identical, or the endpoint becomes a way to find
+	// out which addresses are registered.
+	//
+	// Lý do không bao giờ tới client: "email không tồn tại" và "sai mật khẩu"
+	// phải giống hệt nhau, nếu không endpoint này thành công cụ dò xem địa chỉ
+	// nào đã đăng ký.
+	msg := "invalid credentials"
+	writeJSONError(w, http.StatusUnauthorized, msg)
+}
+
 func (app *application) forbiddenResponse(w http.ResponseWriter, r *http.Request, err error) {
 	app.logger.Warnw("forbidden error", "method", r.Method, "path", r.URL.Path, "error", err.Error())
 

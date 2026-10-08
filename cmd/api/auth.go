@@ -172,3 +172,85 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 
 	app.jsonResponse(w, r, http.StatusOK, nil, "user activated successfully")
 }
+
+type loginRequest struct {
+	Email    string `json:"email" validate:"required,email" example:"an.nguyen@example.com"`
+	Password string `json:"password" validate:"required,min=8" example:"password123"`
+} //@name UserLoginModel
+
+// loginHandler godoc
+//
+//	@Summary		Log in
+//	@Description	Verifies the credentials and starts a session. The signed token is returned in an HttpOnly cookie, not in the body, so page scripts cannot read it. An account that has not been activated is refused with 403.
+//	@Tags			Authentication
+//	@Accept			json
+//	@Produce		json
+//	@Param			payload	body		loginRequest	true	"Credentials"
+//	@Success		200		{object}	UserViewModelResponse
+//	@Failure		400		{object}	JSONError
+//	@Failure		401		{object}	JSONError	"Wrong email or password"
+//	@Failure		403		{object}	JSONError	"The account has not been activated"
+//	@Failure		500		{object}	JSONError
+//	@Router			/authentication/login [post]
+func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
+	var req loginRequest
+	if err := readJSON(w, r, &req); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	if err := Validate.Struct(req); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	user, err := app.store.User.GetByEmail(r.Context(), req.Email)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			// Same answer as a wrong password, see unauthorizedResponse.
+			// Trả lời giống hệt trường hợp sai mật khẩu, xem unauthorizedResponse.
+			app.unauthorizedResponse(w, r, err)
+		default:
+			app.internalServerError(w, r, err)
+		}
+		return
+	}
+
+	if err := user.Password.ComparePassword(req.Password); err != nil {
+		app.unauthorizedResponse(w, r, err)
+		return
+	}
+
+	// Checked after the password, so the activation state of an account is
+	// only revealed to whoever already knows its password.
+	//
+	// Kiểm sau khi so mật khẩu, để trạng thái kích hoạt của một tài khoản chỉ
+	// lộ ra với người vốn đã biết mật khẩu của nó.
+	if !user.IsActive {
+		app.forbiddenResponse(w, r, errors.New("account is not activated"))
+		return
+	}
+
+	token, err := app.authenticator.GenerateToken(user.ID)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	app.setSessionCookie(w, token)
+	app.jsonResponse(w, r, http.StatusOK, user, "logged in successfully")
+}
+
+// logoutHandler godoc
+//
+//	@Summary		Log out
+//	@Description	Clears the session cookie. The token itself stays valid until it expires, so this ends the session for this browser only.
+//	@Tags			Authentication
+//	@Produce		json
+//	@Success		200	{object}	MessageResponse
+//	@Router			/authentication/logout [post]
+func (app *application) logoutHandler(w http.ResponseWriter, r *http.Request) {
+	app.clearSessionCookie(w)
+	app.jsonResponse(w, r, http.StatusOK, nil, "logged out successfully")
+}

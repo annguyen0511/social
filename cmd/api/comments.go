@@ -9,7 +9,6 @@ import (
 )
 
 type createCommentRequest struct {
-	UserID  int64  `json:"user_id" validate:"required" example:"2"`
 	Content string `json:"content" validate:"required" example:"Clean write-up, easy to follow."`
 } //@name CommentCreateModel
 
@@ -48,7 +47,7 @@ func (app *application) createCommentHandler(w http.ResponseWriter, r *http.Requ
 
 	comment := model.Comment{
 		PostID:  postId,
-		UserID:  req.UserID,
+		UserID:  authUser(r).ID,
 		Content: req.Content,
 	}
 

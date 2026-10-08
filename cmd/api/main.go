@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/annguyen0511/social/internal/auth"
 	"github.com/annguyen0511/social/internal/db"
 	"github.com/annguyen0511/social/internal/env"
 	"github.com/annguyen0511/social/internal/mailer"
@@ -41,6 +42,11 @@ func main() {
 		},
 		env:         env.GetString("ENV", "development"),
 		corsOrigins: strings.Split(env.GetString("CORS_ALLOWED_ORIGINS", "http://localhost:5173"), ","),
+		auth: authConfig{
+			secret: env.GetString("JWT_SECRET", ""),
+			issuer: env.GetString("JWT_ISSUER", "social-network"),
+			exp:    env.GetDuration("JWT_EXP", 3*24*time.Hour),
+		},
 		mail: mailConfig{
 			exp:         env.GetDuration("INVITATION_EXP", 3*24*time.Hour),
 			fromEmail:   env.GetString("MAIL_FROM_EMAIL", "no-reply@example.com"),
@@ -72,6 +78,23 @@ func main() {
 
 	defer db.Close()
 
+	// authenticator
+	if cfg.auth.secret == "" {
+		if cfg.env == "production" {
+			logger.Fatal("JWT_SECRET is required when ENV=production")
+		}
+		// A fixed development secret keeps sessions alive across restarts.
+		// It is deliberately obvious so it can never be mistaken for a real
+		// one, and production refuses to start without a proper value.
+		//
+		// Một secret cố định cho dev để phiên đăng nhập không mất sau mỗi lần
+		// khởi động lại. Nó cố tình lộ liễu để không bao giờ bị nhầm là
+		// secret thật, và production thì từ chối chạy nếu thiếu giá trị thật.
+		cfg.auth.secret = "insecure-development-secret-do-not-use-in-production"
+		logger.Warnw("JWT_SECRET not set, using the insecure development secret")
+	}
+	authenticator := auth.NewJWT(cfg.auth.secret, cfg.auth.issuer, cfg.auth.exp)
+
 	// mailer
 	var mailClient mailer.Client
 	switch {
@@ -94,10 +117,11 @@ func main() {
 	store := store.NewStorage(db)
 
 	app := &application{
-		config: cfg,
-		store:  store,
-		logger: logger,
-		mailer: mailClient,
+		config:        cfg,
+		store:         store,
+		logger:        logger,
+		mailer:        mailClient,
+		authenticator: authenticator,
 	}
 
 	mux := app.mount()

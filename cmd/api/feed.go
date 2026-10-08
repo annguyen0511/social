@@ -23,7 +23,7 @@ func (app *application) getFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	feed, total, err := app.store.Post.GetUserFeed(r.Context(), currentUserID, page)
+	feed, total, err := app.store.Post.GetUserFeed(r.Context(), authUser(r).ID, page)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return

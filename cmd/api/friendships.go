@@ -8,9 +8,6 @@ import (
 	"github.com/annguyen0511/social/internal/store"
 )
 
-// currentUserID stands in for the authenticated user until auth is implemented
-const currentUserID int64 = 1
-
 // friendshipTarget returns the user the action is aimed at, already loaded by
 // userContextMiddleware, and rejects actions a user aims at themselves.
 func (app *application) friendshipTarget(w http.ResponseWriter, r *http.Request) (*model.User, bool) {
@@ -20,7 +17,7 @@ func (app *application) friendshipTarget(w http.ResponseWriter, r *http.Request)
 		return nil, false
 	}
 
-	if target.ID == currentUserID {
+	if target.ID == authUser(r).ID {
 		app.badRequestResponse(w, r, errors.New("a user cannot perform this action on themselves"))
 		return nil, false
 	}
@@ -47,7 +44,7 @@ func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := app.store.Follow.Follow(r.Context(), currentUserID, target.ID); err != nil {
+	if err := app.store.Follow.Follow(r.Context(), authUser(r).ID, target.ID); err != nil {
 		switch {
 		case errors.Is(err, store.ErrBlocked):
 			app.forbiddenResponse(w, r, err)
@@ -78,7 +75,7 @@ func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := app.store.Follow.Unfollow(r.Context(), currentUserID, target.ID); err != nil {
+	if err := app.store.Follow.Unfollow(r.Context(), authUser(r).ID, target.ID); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
@@ -104,7 +101,7 @@ func (app *application) blockUserHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := app.store.Block.Block(r.Context(), currentUserID, target.ID); err != nil {
+	if err := app.store.Block.Block(r.Context(), authUser(r).ID, target.ID); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
@@ -130,7 +127,7 @@ func (app *application) unblockUserHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err := app.store.Block.Unblock(r.Context(), currentUserID, target.ID); err != nil {
+	if err := app.store.Block.Unblock(r.Context(), authUser(r).ID, target.ID); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
@@ -157,7 +154,7 @@ func (app *application) addCloseFriendHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := app.store.CloseFriend.Add(r.Context(), currentUserID, target.ID); err != nil {
+	if err := app.store.CloseFriend.Add(r.Context(), authUser(r).ID, target.ID); err != nil {
 		switch {
 		case errors.Is(err, store.ErrBlocked):
 			app.forbiddenResponse(w, r, err)
@@ -188,7 +185,7 @@ func (app *application) removeCloseFriendHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if err := app.store.CloseFriend.Remove(r.Context(), currentUserID, target.ID); err != nil {
+	if err := app.store.CloseFriend.Remove(r.Context(), authUser(r).ID, target.ID); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
@@ -225,19 +222,19 @@ func (app *application) friendshipStatusHandler(w http.ResponseWriter, r *http.R
 
 	ctx := r.Context()
 
-	isFollowing, err := app.store.Follow.IsFollowing(ctx, currentUserID, target.ID)
+	isFollowing, err := app.store.Follow.IsFollowing(ctx, authUser(r).ID, target.ID)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
 
-	isBlocking, err := app.store.Block.IsBlocking(ctx, currentUserID, target.ID)
+	isBlocking, err := app.store.Block.IsBlocking(ctx, authUser(r).ID, target.ID)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
 
-	isCloseFriend, err := app.store.CloseFriend.IsCloseFriend(ctx, currentUserID, target.ID)
+	isCloseFriend, err := app.store.CloseFriend.IsCloseFriend(ctx, authUser(r).ID, target.ID)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
@@ -273,7 +270,7 @@ func (app *application) listFollowersHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	followers, total, err := app.store.Follow.GetFollowers(r.Context(), currentUserID, page)
+	followers, total, err := app.store.Follow.GetFollowers(r.Context(), authUser(r).ID, page)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
@@ -300,7 +297,7 @@ func (app *application) listFollowingHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	following, total, err := app.store.Follow.GetFollowing(r.Context(), currentUserID, page)
+	following, total, err := app.store.Follow.GetFollowing(r.Context(), authUser(r).ID, page)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
@@ -327,7 +324,7 @@ func (app *application) listBlockingHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	blocking, total, err := app.store.Block.ListBlocking(r.Context(), currentUserID, page)
+	blocking, total, err := app.store.Block.ListBlocking(r.Context(), authUser(r).ID, page)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
@@ -354,7 +351,7 @@ func (app *application) listCloseFriendsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	friendIDs, total, err := app.store.CloseFriend.List(r.Context(), currentUserID, page)
+	friendIDs, total, err := app.store.CloseFriend.List(r.Context(), authUser(r).ID, page)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return

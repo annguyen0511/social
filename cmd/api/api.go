@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/annguyen0511/social/docs" // This is required to generate swagger docs
+	"github.com/annguyen0511/social/internal/auth"
 	"github.com/annguyen0511/social/internal/mailer"
 	"github.com/annguyen0511/social/internal/store"
 	"github.com/go-chi/chi/v5"
@@ -16,10 +17,11 @@ import (
 )
 
 type application struct {
-	config config
-	store  store.Storage
-	logger *zap.SugaredLogger
-	mailer mailer.Client
+	config        config
+	store         store.Storage
+	logger        *zap.SugaredLogger
+	mailer        mailer.Client
+	authenticator auth.Authenticator
 }
 
 type config struct {
@@ -28,6 +30,7 @@ type config struct {
 	env      string
 	apiURL   string
 	mail     mailConfig
+	auth     authConfig
 	// corsOrigins lists the browser origins allowed to call the API. The
 	// frontend runs on another port, so without this every request from it is
 	// blocked before the handler ever runs.
@@ -36,6 +39,12 @@ type config struct {
 	// chạy ở cổng khác, nên thiếu phần này thì mọi request từ nó bị chặn
 	// trước cả khi handler chạy.
 	corsOrigins []string
+}
+
+type authConfig struct {
+	secret string
+	issuer string
+	exp    time.Duration
 }
 
 type mailConfig struct {
@@ -103,10 +112,13 @@ func (app *application) mount() *chi.Mux {
 		r.Route("/authentication", func(r chi.Router) {
 			r.Post("/register", app.registerHandler)
 			r.Put("/activate/{token}", app.activateUserHandler)
-			// r.Post("/login", app.loginHandler)
+			r.Post("/login", app.loginHandler)
+			r.Post("/logout", app.logoutHandler)
 		})
 
 		r.Route("/posts", func(r chi.Router) {
+			r.Use(app.requireAuth)
+
 			r.Post("/", app.createPostHandler)
 			r.Route("/{postID}", func(r chi.Router) {
 				r.Use(app.postContextMiddileware)
@@ -118,7 +130,7 @@ func (app *application) mount() *chi.Mux {
 			})
 		})
 		r.Route("/users", func(r chi.Router) {
-			// r.Post("/login", app.loginHandler)
+			r.Use(app.requireAuth)
 			r.Route("/{userID}", func(r chi.Router) {
 				r.Use(app.userContextMiddleware)
 
@@ -132,6 +144,8 @@ func (app *application) mount() *chi.Mux {
 
 		// The {userID} below is always the target of the action
 		r.Route("/friend-ship", func(r chi.Router) {
+			r.Use(app.requireAuth)
+
 			r.Get("/followers", app.listFollowersHandler)
 			r.Get("/following", app.listFollowingHandler)
 			r.Get("/blocking", app.listBlockingHandler)
