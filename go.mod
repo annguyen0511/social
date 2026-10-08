@@ -29,6 +29,8 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/leodido/go-urn v1.5.0 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
+	github.com/sendgrid/rest v2.6.9+incompatible // indirect
+	github.com/sendgrid/sendgrid-go v3.16.1+incompatible // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/swaggo/files/v2 v2.0.0 // indirect
 	github.com/urfave/cli/v2 v2.3.0 // indirect

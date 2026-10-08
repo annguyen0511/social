@@ -1,0 +1,37 @@
+{{define "subject"}}Activate your Social Network account{{end}}
+
+{{define "plainBody"}}
+Hi {{.Username}},
+
+Welcome to Social Network. Open the link below to activate your account:
+
+{{.ActivationURL}}
+
+The link expires soon. If it stops working, register again to get a new one.
+If you did not sign up, you can ignore this message.
+{{end}}
+
+{{define "htmlBody"}}
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:24px;background:#f5f5f4;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1c1917;">
+  <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;">
+    <h1 style="margin:0 0 16px;font-size:20px;">Welcome, {{.Username}}</h1>
+    <p style="margin:0 0 24px;line-height:1.6;color:#44403c;">
+      Activate your Social Network account to start posting and following people.
+    </p>
+    <p style="margin:0 0 24px;">
+      <a href="{{.ActivationURL}}" style="display:inline-block;background:#1c1917;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Activate account</a>
+    </p>
+    <p style="margin:0 0 8px;line-height:1.6;color:#78716c;font-size:13px;">
+      If the button does not work, paste this address into your browser:
+    </p>
+    <p style="margin:0 0 24px;word-break:break-all;font-size:13px;color:#78716c;">{{.ActivationURL}}</p>
+    <p style="margin:0;line-height:1.6;color:#78716c;font-size:13px;">
+      The link expires soon. If you did not sign up, you can ignore this message.
+    </p>
+  </div>
+</body>
+</html>
+{{end}}
