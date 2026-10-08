@@ -33,6 +33,7 @@ type Storage struct {
 		Create(context.Context, *model.User) error
 		CreateAndInvited(context.Context, *model.User, string, time.Duration) error
 		Activate(context.Context, string) error
+		Delete(context.Context, int64) error
 		Update(context.Context, *model.User) error
 		GetById(context.Context, int64) (*model.User, error)
 	}

@@ -87,6 +87,29 @@ func (u *UserStore) Activate(ctx context.Context, token string) error {
 //
 // create chèn một user. Nó nhận *sql.Tx thay vì pool để cả Create lẫn
 // CreateAndInvited dùng chung được, mỗi bên trong transaction của mình.
+// Delete removes a user. Their invitations go with them through the
+// ON DELETE CASCADE on user_invitations.fk_user_invitations_user_id, so the
+// database guarantees no invitation can outlive the account it points at,
+// whatever deletes the row.
+//
+// Registration uses this to undo itself when the activation mail cannot be
+// sent: leaving the account behind would hold the email and username hostage
+// with no way to activate them.
+//
+// Delete xoá một user. Các lời mời của họ bị xoá theo nhờ ON DELETE CASCADE
+// trên khoá ngoại user_invitations.fk_user_invitations_user_id, nên database
+// bảo đảm không lời mời nào sống lâu hơn tài khoản nó trỏ tới, bất kể ai xoá.
+//
+// Luồng đăng ký dùng nó để tự huỷ khi không gửi được mail kích hoạt: để lại
+// tài khoản sẽ chiếm mất email và username mà không có cách nào kích hoạt.
+func (u *UserStore) Delete(ctx context.Context, userID int64) error {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	_, err := u.db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, userID)
+	return err
+}
+
 func (u *UserStore) create(ctx context.Context, tx *sql.Tx, user *model.User) error {
 	query := `
 	INSERT INTO users (first_name, last_name, avatar_url, username, email, password, is_active)
