@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"time"
 
 	"github.com/annguyen0511/social/internal/db"
@@ -38,7 +39,8 @@ func main() {
 			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 10),
 			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
 		},
-		env: env.GetString("ENV", "development"),
+		env:         env.GetString("ENV", "development"),
+		corsOrigins: strings.Split(env.GetString("CORS_ALLOWED_ORIGINS", "http://localhost:5173"), ","),
 		mail: mailConfig{
 			exp:         env.GetDuration("INVITATION_EXP", 3*24*time.Hour),
 			fromEmail:   env.GetString("MAIL_FROM_EMAIL", "no-reply@example.com"),

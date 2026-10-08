@@ -10,6 +10,7 @@ import (
 	"github.com/annguyen0511/social/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"go.uber.org/zap"
 )
@@ -27,6 +28,14 @@ type config struct {
 	env      string
 	apiURL   string
 	mail     mailConfig
+	// corsOrigins lists the browser origins allowed to call the API. The
+	// frontend runs on another port, so without this every request from it is
+	// blocked before the handler ever runs.
+	//
+	// corsOrigins liệt kê các origin trình duyệt được phép gọi API. Frontend
+	// chạy ở cổng khác, nên thiếu phần này thì mọi request từ nó bị chặn
+	// trước cả khi handler chạy.
+	corsOrigins []string
 }
 
 type mailConfig struct {
@@ -68,6 +77,21 @@ func (app *application) mount() *chi.Mux {
 	// through ctx.Done() that the request has timed out and further
 	// processing should be stopped.
 	r.Use(middleware.Timeout(60 * time.Second))
+
+	// AllowCredentials is what lets the browser send the session cookie to
+	// another origin; it forbids the "*" wildcard, so the origins must be
+	// listed explicitly.
+	//
+	// AllowCredentials là thứ cho phép trình duyệt gửi cookie phiên sang
+	// origin khác; nó cấm dùng ký tự đại diện "*", nên phải liệt kê origin ra
+	// cụ thể.
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   app.config.corsOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
 
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/health", app.healthCheckHandler)
