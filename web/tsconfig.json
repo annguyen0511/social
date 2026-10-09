@@ -13,7 +13,17 @@
     "isolatedModules": true,
     "noEmit": true,
     "allowImportingTsExtensions": false,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+
+    // shadcn/ui sinh component với import dạng "@/components/ui/button", nên
+    // alias này là điều kiện bắt buộc để CLI của nó chạy được.
+    //
+    // shadcn/ui generates components importing from "@/components/ui/button",
+    // so this alias is what its CLI needs in order to work at all.
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src"]
 }

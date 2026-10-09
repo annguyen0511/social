@@ -1,10 +1,20 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
+import { Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { HttpError, post } from '../../api/client'
 import type { RegisteredUser } from '../../api/types'
 
-const field = 'w-full rounded-lg border border-stone-300 px-3 py-2 outline-none focus:border-stone-900'
+const fields = [
+  { name: 'first_name', label: 'Tên', type: 'text', autoComplete: 'given-name' },
+  { name: 'last_name', label: 'Họ', type: 'text', autoComplete: 'family-name' },
+  { name: 'username', label: 'Tên đăng nhập', type: 'text', autoComplete: 'username' },
+  { name: 'email', label: 'Email', type: 'email', autoComplete: 'email' },
+  { name: 'password', label: 'Mật khẩu', type: 'password', autoComplete: 'new-password' },
+] as const
 
 export function RegisterPage() {
   const [form, setForm] = useState({
@@ -40,61 +50,77 @@ export function RegisterPage() {
 
   if (mutation.isSuccess) {
     return (
-      <main className="min-h-dvh grid place-items-center bg-stone-100 p-6">
-        <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-sm">
-          <h1 className="mb-2 text-xl font-semibold">Kiểm tra email của bạn</h1>
-          <p className="text-stone-600">Chúng tôi đã gửi liên kết kích hoạt tới {form.email}.</p>
+      <main className="grid min-h-dvh place-items-center p-6">
+        <Card className="w-full max-w-sm">
+          <CardContent>
+            <h1 className="mb-2 text-xl font-semibold">Kiểm tra email của bạn</h1>
+            <p className="text-muted-foreground">
+              Chúng tôi đã gửi liên kết kích hoạt tới {form.email}.
+            </p>
 
-          {/* Chỉ có khi API chạy ngoài production, dùng để thử luồng mà không cần hòm thư thật. */}
-          {mutation.data.token && (
-            <Link
-              to={`/confirm/${mutation.data.token}`}
-              className="mt-4 block break-all rounded-lg bg-stone-100 p-3 text-sm text-stone-700"
-            >
-              Chế độ dev: bấm vào đây để kích hoạt ngay
-            </Link>
-          )}
-        </div>
+            {/* Chỉ có khi API chạy ngoài production, dùng để thử luồng mà không
+                cần hòm thư thật.
+
+                Only present when the API runs outside production, so the flow
+                can be exercised without a real mailbox. */}
+            {mutation.data.token && (
+              <Button asChild variant="secondary" className="mt-4 w-full">
+                <Link to={`/confirm/${mutation.data.token}`}>
+                  Chế độ dev: kích hoạt ngay
+                </Link>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       </main>
     )
   }
 
   return (
-    <main className="min-h-dvh grid place-items-center bg-stone-100 p-6">
-      <form
-        className="w-full max-w-sm space-y-3 rounded-xl bg-white p-8 shadow-sm"
-        onSubmit={(e) => {
-          e.preventDefault()
-          mutation.mutate()
-        }}
-      >
-        <h1 className="mb-2 text-xl font-semibold">Tạo tài khoản</h1>
+    <main className="grid min-h-dvh place-items-center p-6">
+      <Card className="w-full max-w-sm">
+        <CardContent>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              mutation.mutate()
+            }}
+          >
+            <h1 className="mb-2 text-xl font-semibold">Tạo tài khoản</h1>
 
-        {(['first_name', 'last_name', 'username', 'email', 'password'] as const).map((name) => (
-          <input
-            key={name}
-            className={field}
-            type={name === 'password' ? 'password' : name === 'email' ? 'email' : 'text'}
-            placeholder={name}
-            value={form[name]}
-            onChange={(e) => setForm({ ...form, [name]: e.target.value })}
-          />
-        ))}
+            {fields.map((field) => (
+              <Input
+                key={field.name}
+                type={field.type}
+                placeholder={field.label}
+                autoComplete={field.autoComplete}
+                value={form[field.name]}
+                onChange={(e) => setForm({ ...form, [field.name]: e.target.value })}
+              />
+            ))}
 
-        {errorText && <p className="text-sm text-red-600">{errorText}</p>}
+            {errorText && <p className="text-sm text-destructive">{errorText}</p>}
 
-        <button
-          type="submit"
-          disabled={invalid || mutation.isPending}
-          className="w-full rounded-lg bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
-        >
-          {mutation.isPending ? 'Đang gửi…' : 'Đăng ký'}
-        </button>
+            <Button
+              type="submit"
+              size="lg"
+              disabled={invalid || mutation.isPending}
+              className="w-full"
+            >
+              {mutation.isPending && <Loader2 className="animate-spin" />}
+              {mutation.isPending ? 'Đang gửi' : 'Đăng ký'}
+            </Button>
 
-        <p className="text-center text-sm text-stone-500">
-          Đã có tài khoản? <Link to="/login" className="underline">Đăng nhập</Link>
-        </p>
-      </form>
+            <p className="text-center text-sm text-muted-foreground">
+              Đã có tài khoản?{' '}
+              <Link to="/login" className="underline">
+                Đăng nhập
+              </Link>
+            </p>
+          </form>
+        </CardContent>
+      </Card>
     </main>
   )
 }

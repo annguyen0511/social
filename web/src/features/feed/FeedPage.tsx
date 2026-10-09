@@ -1,5 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Loader2, LogOut } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { HttpError, get, post } from '../../api/client'
 import type { FeedPost, Pagination } from '../../api/types'
 
@@ -50,12 +54,12 @@ export function FeedPage() {
   // khoản bị xoá. Đưa người dùng về trang đăng nhập.
   if (query.error instanceof HttpError && query.error.status === 401) {
     return (
-      <main className="min-h-dvh grid place-items-center bg-stone-100 p-6">
+      <main className="grid min-h-dvh place-items-center p-6">
         <div className="text-center">
-          <p className="mb-4 text-stone-600">Phiên đăng nhập đã hết.</p>
-          <Link to="/login" className="rounded-lg bg-stone-900 px-5 py-2.5 font-medium text-white">
-            Đăng nhập lại
-          </Link>
+          <p className="mb-4 text-muted-foreground">Phiên đăng nhập đã hết.</p>
+          <Button asChild>
+            <Link to="/login">Đăng nhập lại</Link>
+          </Button>
         </div>
       </main>
     )
@@ -65,40 +69,61 @@ export function FeedPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-6">
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">Bảng tin</h1>
-        <button onClick={() => logout.mutate()} className="text-sm text-stone-500 underline">
+        <Button variant="ghost" size="sm" onClick={() => logout.mutate()}>
+          <LogOut />
           Đăng xuất
-        </button>
+        </Button>
       </header>
 
-      {query.isPending && <p className="text-stone-500">Đang tải…</p>}
+      {query.isPending && (
+        <div className="space-y-4">
+          {[0, 1, 2].map((i) => (
+            <Card key={i}>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-4 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {query.isSuccess && posts.length === 0 && (
-        <p className="text-stone-500">Chưa có bài nào. Hãy theo dõi vài người để bảng tin có nội dung.</p>
+        <p className="text-muted-foreground">
+          Chưa có bài nào. Hãy theo dõi vài người để bảng tin có nội dung.
+        </p>
       )}
 
       <ul className="space-y-4">
         {posts.map((post) => (
-          <li key={post.id} className="rounded-xl bg-white p-5 shadow-sm">
-            <p className="mb-1 text-sm text-stone-500">@{post.user.username}</p>
-            <h2 className="font-semibold">{post.title}</h2>
-            <p className="mt-1 text-stone-700">{post.content}</p>
-            <p className="mt-3 text-sm text-stone-500">
-              {post.comment_count} bình luận · {post.like_count} thích
-            </p>
+          <li key={post.id}>
+            <Card>
+              <CardContent>
+                <p className="mb-1 text-sm text-muted-foreground">@{post.user.username}</p>
+                <h2 className="font-semibold">{post.title}</h2>
+                <p className="mt-1 text-foreground/80">{post.content}</p>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {post.comment_count} bình luận · {post.like_count} thích
+                </p>
+              </CardContent>
+            </Card>
           </li>
         ))}
       </ul>
 
       {query.hasNextPage && (
-        <button
+        <Button
+          variant="outline"
           onClick={() => query.fetchNextPage()}
           disabled={query.isFetchingNextPage}
-          className="mt-6 w-full rounded-lg border border-stone-300 py-2.5 disabled:opacity-40"
+          className="mt-6 w-full"
         >
-          {query.isFetchingNextPage ? 'Đang tải…' : 'Tải thêm'}
-        </button>
+          {query.isFetchingNextPage && <Loader2 className="animate-spin" />}
+          {query.isFetchingNextPage ? 'Đang tải' : 'Tải thêm'}
+        </Button>
       )}
     </main>
   )

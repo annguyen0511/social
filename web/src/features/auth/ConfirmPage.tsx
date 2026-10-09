@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { put } from '../../api/client'
-import { HttpError } from '../../api/client'
+import { Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { HttpError, put } from '../../api/client'
 
 type State = { kind: 'working' } | { kind: 'done' } | { kind: 'failed'; message: string }
 
@@ -42,30 +44,37 @@ export function ConfirmPage() {
   }, [token])
 
   return (
-    <main className="min-h-dvh grid place-items-center bg-stone-100 p-6">
-      <div className="w-full max-w-sm rounded-xl bg-white p-8 text-center shadow-sm">
-        {state.kind === 'working' && <p className="text-stone-600">Đang kích hoạt tài khoản…</p>}
+    <main className="grid min-h-dvh place-items-center p-6">
+      <Card className="w-full max-w-sm">
+        <CardContent className="text-center">
+          {state.kind === 'working' && (
+            <p className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Đang kích hoạt tài khoản…
+            </p>
+          )}
 
-        {state.kind === 'done' && (
-          <>
-            <h1 className="mb-2 text-xl font-semibold">Kích hoạt thành công</h1>
-            <p className="mb-6 text-stone-600">Bạn có thể đăng nhập ngay bây giờ.</p>
-            <Link to="/login" className="inline-block rounded-lg bg-stone-900 px-5 py-2.5 font-medium text-white">
-              Đăng nhập
-            </Link>
-          </>
-        )}
+          {state.kind === 'done' && (
+            <>
+              <h1 className="mb-2 text-xl font-semibold">Kích hoạt thành công</h1>
+              <p className="mb-6 text-muted-foreground">Bạn có thể đăng nhập ngay bây giờ.</p>
+              <Button asChild size="lg">
+                <Link to="/login">Đăng nhập</Link>
+              </Button>
+            </>
+          )}
 
-        {state.kind === 'failed' && (
-          <>
-            <h1 className="mb-2 text-xl font-semibold">Không kích hoạt được</h1>
-            <p className="mb-6 text-stone-600">{state.message}</p>
-            <Link to="/register" className="inline-block rounded-lg bg-stone-900 px-5 py-2.5 font-medium text-white">
-              Đăng ký lại
-            </Link>
-          </>
-        )}
-      </div>
+          {state.kind === 'failed' && (
+            <>
+              <h1 className="mb-2 text-xl font-semibold">Không kích hoạt được</h1>
+              <p className="mb-6 text-muted-foreground">{state.message}</p>
+              <Button asChild size="lg" variant="outline">
+                <Link to="/register">Đăng ký lại</Link>
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </main>
   )
 }

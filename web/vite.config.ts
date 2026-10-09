@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -20,6 +21,18 @@ const frontendHost = (() => {
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Phải khớp với "paths" trong tsconfig.json: tsc chỉ kiểm kiểu, còn Vite mới
+  // là thứ phân giải đường dẫn lúc build. Thiếu một trong hai thì hoặc tsc báo
+  // lỗi, hoặc build chạy nhưng không tìm thấy module.
+  //
+  // Must mirror "paths" in tsconfig.json: tsc only checks types, Vite is what
+  // actually resolves the path at build time. Miss either one and you get
+  // either a type error or a build that cannot find the module.
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
   server: {
     port: 5173,
     // Vite 6 refuses requests whose Host header it does not recognise, which
