@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { HttpError, get, post } from '../../api/client'
 import type { FeedPost, Pagination } from '../../api/types'
+import { UserSearch } from '../users/UserSearch'
 
 /**
  * The feed, paged with useInfiniteQuery.
@@ -69,12 +70,15 @@ export function FeedPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-6">
-      <header className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">Bảng tin</h1>
-        <Button variant="ghost" size="sm" onClick={() => logout.mutate()}>
-          <LogOut />
-          Đăng xuất
-        </Button>
+      <header className="mb-6 space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-xl font-semibold">Bảng tin</h1>
+          <Button variant="ghost" size="sm" onClick={() => logout.mutate()}>
+            <LogOut />
+            Đăng xuất
+          </Button>
+        </div>
+        <UserSearch />
       </header>
 
       {query.isPending && (
@@ -93,7 +97,7 @@ export function FeedPage() {
 
       {query.isSuccess && posts.length === 0 && (
         <p className="text-muted-foreground">
-          Chưa có bài nào. Hãy theo dõi vài người để bảng tin có nội dung.
+          Chưa có bài nào. Dùng ô tìm kiếm ở trên để theo dõi vài người.
         </p>
       )}
 
@@ -102,7 +106,12 @@ export function FeedPage() {
           <li key={post.id}>
             <Card>
               <CardContent>
-                <p className="mb-1 text-sm text-muted-foreground">@{post.user.username}</p>
+                <Link
+                  to={`/users/${post.user.id}`}
+                  className="mb-1 block text-sm text-muted-foreground hover:underline"
+                >
+                  @{post.user.username}
+                </Link>
                 <h2 className="font-semibold">{post.title}</h2>
                 <p className="mt-1 text-foreground/80">{post.content}</p>
                 <p className="mt-3 text-sm text-muted-foreground">

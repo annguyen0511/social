@@ -36,6 +36,24 @@ export type User = {
   updated_at: string
 }
 
+// A search result: the user, plus whether the person searching already
+// follows them. The flag comes down with the row so each result can draw its
+// follow button without one extra request per row.
+//
+// Một dòng kết quả tìm kiếm: thông tin user, kèm việc người tìm đã theo dõi
+// họ chưa. Cờ này về cùng dòng dữ liệu nên mỗi kết quả vẽ được nút theo dõi
+// mà không cần thêm một request cho từng dòng.
+export type SearchedUser = User & {
+  is_following: boolean
+}
+
+export type FriendshipStatus = {
+  user_id: number
+  is_following: boolean
+  is_blocking: boolean
+  is_close_friend: boolean
+}
+
 export type FeedPost = {
   id: number
   title: string
