@@ -251,6 +251,71 @@ func (u *UserStore) GetByEmail(ctx context.Context, email string) (*model.User, 
 	return &user, nil
 }
 
+// Search finds active users whose username or full name contains q, ranked by
+// how closely the username matches. viewerID is excluded, and so is anyone on
+// either side of a block: the point of blocking is to disappear from each
+// other, and search would be the easiest way around that.
+//
+// ILIKE with a leading wildcard normally forces a full scan, but the GIN
+// trigram indexes make it an index lookup. The expressions here must stay
+// character for character identical to the ones the indexes are built on.
+//
+// Search tìm những user đang hoạt động có username hoặc họ tên chứa q, xếp
+// theo mức khớp của username. Loại chính người tìm, và loại cả hai chiều của
+// quan hệ chặn: mục đích của block là biến mất khỏi nhau, mà tìm kiếm lại là
+// đường vòng dễ nhất.
+//
+// ILIKE mở đầu bằng ký tự đại diện vốn buộc quét toàn bảng, nhưng index GIN
+// trigram biến nó thành tra cứu theo index. Các biểu thức ở đây phải trùng
+// từng ký tự với biểu thức dùng để tạo index.
+func (u *UserStore) Search(ctx context.Context, viewerID int64, q string, page PaginationQuery) ([]model.SearchedUser, int64, error) {
+	filter := `
+	FROM users u
+	WHERE u.is_active
+	  AND u.id <> $1
+	  AND (u.username ILIKE '%' || $2 || '%'
+	       OR (u.first_name || ' ' || u.last_name) ILIKE '%' || $2 || '%')
+	  AND NOT EXISTS (
+	        SELECT 1 FROM blocks b
+	        WHERE (b.blocker_id = $1 AND b.blocked_id = u.id)
+	           OR (b.blocker_id = u.id AND b.blocked_id = $1)
+	      )
+	`
+
+	countQuery := `SELECT COUNT(*) ` + filter
+
+	// The EXISTS subquery runs only for the rows on this page, since it sits
+	// in the SELECT list rather than the WHERE clause, and it hits the primary
+	// key of follows. That is what keeps one query cheaper than the client
+	// asking about every row it just received.
+	//
+	// Truy vấn con EXISTS chỉ chạy cho những dòng thuộc trang này, vì nó nằm
+	// trong danh sách SELECT chứ không phải WHERE, và nó đi theo khoá chính
+	// của bảng follows. Nhờ vậy một câu truy vấn vẫn rẻ hơn việc client hỏi
+	// lại từng dòng vừa nhận.
+	pageQuery := `
+	SELECT u.id, u.first_name, u.last_name, COALESCE(u.avatar_url, ''), u.username,
+	       u.email, u.is_active, u.created_at, u.updated_at,
+	       EXISTS (
+	         SELECT 1 FROM follows f
+	         WHERE f.follower_id = $1 AND f.following_id = u.id
+	       ) AS is_following
+	` + filter + `
+	ORDER BY similarity(u.username, $2) DESC, u.id DESC
+	LIMIT $3 OFFSET $4
+	`
+
+	return paginate(ctx, u.db, page, countQuery, pageQuery, []any{viewerID, q}, func(rows *sql.Rows) (model.SearchedUser, error) {
+		var user model.SearchedUser
+		err := rows.Scan(
+			&user.ID, &user.FirstName, &user.LastName, &user.AvatarURL, &user.UserName,
+			&user.Email, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+			&user.IsFollowing,
+		)
+		return user, err
+	})
+}
+
 func (u *UserStore) Update(ctx context.Context, user *model.User) error {
 	query := `
 	UPDATE users

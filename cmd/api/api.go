@@ -139,6 +139,7 @@ func (app *application) mount() *chi.Mux {
 			})
 			r.Group(func(r chi.Router) {
 				r.Get("/feed", app.getFeedHandler)
+				r.Get("/search", app.searchUsersHandler)
 			})
 		})
 

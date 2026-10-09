@@ -15,6 +15,20 @@ type User struct {
 	UpdatedAt string   `json:"updated_at" db:"updated_at"`
 } //@name UserViewModel
 
+// SearchedUser is a user as a search returns them: the user, plus whether the
+// person searching already follows them. Carrying the flag here lets a result
+// row draw its follow button straight away; without it the client would have
+// to ask about every row it just received.
+//
+// SearchedUser là một user theo cách tìm kiếm trả về: thông tin user, kèm
+// việc người đang tìm đã theo dõi họ hay chưa. Mang sẵn cờ này giúp mỗi dòng
+// kết quả vẽ được ngay nút theo dõi; thiếu nó thì client phải hỏi lại từng
+// dòng vừa nhận.
+type SearchedUser struct {
+	User
+	IsFollowing bool `json:"is_following"`
+} //@name UserSearchViewModel
+
 // Password keeps the hash apart from the plaintext it was derived from. Only
 // the hash is ever stored, and it never reaches a client: User.Password
 // carries a json:"-" tag.

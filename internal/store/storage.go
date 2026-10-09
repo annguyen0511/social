@@ -37,6 +37,7 @@ type Storage struct {
 		Update(context.Context, *model.User) error
 		GetById(context.Context, int64) (*model.User, error)
 		GetByEmail(context.Context, string) (*model.User, error)
+		Search(ctx context.Context, viewerID int64, q string, page PaginationQuery) ([]model.SearchedUser, int64, error)
 	}
 
 	Comment interface {

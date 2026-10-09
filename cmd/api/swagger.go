@@ -16,12 +16,16 @@ type PostViewModelResponse Response[model.Post]                   //@name PostVi
 type UserViewModelResponse Response[model.User]                   //@name UserViewModelResponse
 type FriendshipStatusViewModelResponse Response[friendshipStatus] //@name FriendshipStatusViewModelResponse
 
-type FeedPostViewModelPagination Pagination[model.FeedPost] //@name FeedPostViewModelPagination
-type FollowViewModelPagination Pagination[model.Follow]     //@name FollowViewModelPagination
-type BlockViewModelPagination Pagination[model.Block]       //@name BlockViewModelPagination
-type UserIDPagination Pagination[int64]                     //@name UserIDPagination
+type FeedPostViewModelPagination Pagination[model.FeedPost]       //@name FeedPostViewModelPagination
+type FollowViewModelPagination Pagination[model.Follow]           //@name FollowViewModelPagination
+type BlockViewModelPagination Pagination[model.Block]             //@name BlockViewModelPagination
+type UserViewModelPagination Pagination[model.User]               //@name UserViewModelPagination
+type UserSearchViewModelPagination Pagination[model.SearchedUser] //@name UserSearchViewModelPagination
+type UserIDPagination Pagination[int64]                           //@name UserIDPagination
 
-type FeedPostViewModelPaginationResponse Response[FeedPostViewModelPagination] //@name FeedPostViewModelPaginationResponse
-type FollowViewModelPaginationResponse Response[FollowViewModelPagination]     //@name FollowViewModelPaginationResponse
-type BlockViewModelPaginationResponse Response[BlockViewModelPagination]       //@name BlockViewModelPaginationResponse
-type UserIDPaginationResponse Response[UserIDPagination]                       //@name UserIDPaginationResponse
+type FeedPostViewModelPaginationResponse Response[FeedPostViewModelPagination]     //@name FeedPostViewModelPaginationResponse
+type FollowViewModelPaginationResponse Response[FollowViewModelPagination]         //@name FollowViewModelPaginationResponse
+type BlockViewModelPaginationResponse Response[BlockViewModelPagination]           //@name BlockViewModelPaginationResponse
+type UserViewModelPaginationResponse Response[UserViewModelPagination]             //@name UserViewModelPaginationResponse
+type UserSearchViewModelPaginationResponse Response[UserSearchViewModelPagination] //@name UserSearchViewModelPaginationResponse
+type UserIDPaginationResponse Response[UserIDPagination]                           //@name UserIDPaginationResponse
