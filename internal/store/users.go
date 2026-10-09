@@ -316,18 +316,51 @@ func (u *UserStore) Search(ctx context.Context, viewerID int64, q string, page P
 	})
 }
 
+// Update writes the fields a user is allowed to change about themselves.
+// Email is deliberately not among them: it is the login identifier, so
+// changing it without proving ownership of the new address would let someone
+// lock themselves out, or claim an address they do not hold.
+//
+// Update ghi những field mà người dùng được phép tự đổi. Email cố tình không
+// nằm trong số đó: nó là định danh để đăng nhập, nên đổi mà không chứng minh
+// được quyền sở hữu địa chỉ mới sẽ khiến người ta tự khoá mình ra ngoài, hoặc
+// chiếm một địa chỉ không phải của mình.
 func (u *UserStore) Update(ctx context.Context, user *model.User) error {
 	query := `
 	UPDATE users
-	SET first_name = $1, last_name = $2, avatar_url = $3, updated_at = NOW()
-	WHERE id = $4 RETURNING updated_at
+	SET first_name = $1, last_name = $2, avatar_url = $3, username = $4, updated_at = NOW()
+	WHERE id = $5 RETURNING updated_at
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	err := u.db.QueryRowContext(ctx, query, user.FirstName, user.LastName, user.AvatarURL, user.ID).Scan(&user.UpdatedAt)
+	err := u.db.QueryRowContext(
+		ctx, query,
+		user.FirstName, user.LastName, user.AvatarURL, user.UserName, user.ID,
+	).Scan(&user.UpdatedAt)
+
 	if err != nil {
+		// No row means the account was deleted between the session check and
+		// this write. That is a 404, not a server fault.
+		//
+		// Không có dòng nào nghĩa là tài khoản đã bị xoá trong khoảng giữa lúc
+		// kiểm phiên và lúc ghi. Đó là 404, không phải lỗi server.
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+
+		// Someone else already holds the requested username. Ordinary outcome,
+		// so it gets its own error rather than a driver error the handler
+		// would turn into a 500.
+		//
+		// Username được yêu cầu đã có người khác dùng. Đây là kết quả bình
+		// thường nên nó có error riêng, thay vì lỗi thô của driver mà handler
+		// sẽ biến thành 500.
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" && pqErr.Constraint == "users_username_key" {
+			return ErrDuplicateUsername
+		}
 		return err
 	}
 	return nil

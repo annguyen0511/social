@@ -135,10 +135,10 @@ func (app *application) mount() *chi.Mux {
 				r.Use(app.userContextMiddleware)
 
 				r.Get("/", app.getUserHandler)
-				// r.Patch("/",)
 			})
 			r.Group(func(r chi.Router) {
 				r.Get("/me", app.getCurrentUserHandler)
+				r.Patch("/me", app.updateProfileHandler)
 				r.Get("/feed", app.getFeedHandler)
 				r.Get("/search", app.searchUsersHandler)
 			})

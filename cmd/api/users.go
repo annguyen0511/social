@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -84,6 +85,129 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 //	@Router			/users/me [get]
 func (app *application) getCurrentUserHandler(w http.ResponseWriter, r *http.Request) {
 	if err := app.jsonResponse(w, r, http.StatusOK, authUser(r), "current user retrieved successfully"); err != nil {
+		app.internalServerError(w, r, err)
+	}
+}
+
+type updateProfileRequest struct {
+	FirstName *string `json:"first_name" example:"An"`
+	LastName  *string `json:"last_name" example:"Nguyen"`
+	UserName  *string `json:"username" example:"an.nguyen"`
+	AvatarURL *string `json:"avatar_url" example:"https://example.com/a.jpg"`
+} //@name UserUpdateModel
+
+// validateProfile checks the user after the request has been applied to it,
+// rather than checking the request itself.
+//
+// The reason is that every field is a pointer so an omitted field can keep its
+// old value, and `omitempty` in a validate tag cannot tell "not sent" from
+// "sent as an empty string": it skips both, which would let a caller erase a
+// name to "". Checking the merged result has no such blind spot.
+//
+// Lengths count runes, not bytes. Postgres counts characters in varchar(255),
+// while len() on a Go string counts bytes, so a Vietnamese name would be
+// rejected at roughly a third of the length actually allowed.
+//
+// validateProfile kiểm tra user sau khi request đã được áp vào, chứ không
+// kiểm bản thân request.
+//
+// Lý do: mọi field đều là con trỏ để field không gửi thì giữ giá trị cũ, mà
+// `omitempty` trong validate tag không phân biệt được "không gửi" với "gửi
+// chuỗi rỗng" — nó bỏ qua cả hai, nên người gọi có thể xoá trắng tên thành
+// "". Kiểm kết quả đã hợp nhất thì không còn điểm mù đó.
+//
+// Độ dài đếm theo rune chứ không phải byte. Postgres đếm ký tự trong
+// varchar(255), còn len() của Go đếm byte, nên một cái tên tiếng Việt sẽ bị
+// chặn ở khoảng một phần ba độ dài thực sự được phép.
+func validateProfile(user *model.User) error {
+	for _, field := range []struct{ name, value string }{
+		{"first_name", user.FirstName},
+		{"last_name", user.LastName},
+		{"username", user.UserName},
+	} {
+		if n := len([]rune(field.value)); n < 2 || n > 100 {
+			return fmt.Errorf("%s must be between 2 and 100 characters", field.name)
+		}
+	}
+
+	// An empty avatar_url is how the picture is removed, so only a non-empty
+	// value has to look like a URL.
+	//
+	// avatar_url rỗng chính là cách xoá ảnh, nên chỉ giá trị khác rỗng mới cần
+	// trông giống một URL.
+	if user.AvatarURL == "" {
+		return nil
+	}
+	if len([]rune(user.AvatarURL)) > 255 {
+		return errors.New("avatar_url must be at most 255 characters")
+	}
+	parsed, err := url.Parse(user.AvatarURL)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return errors.New("avatar_url must be an http or https URL")
+	}
+	return nil
+}
+
+// updateProfileHandler godoc
+//
+//	@Summary		Update my profile
+//	@Description	Changes the signed-in user's own profile. Every field is optional: one left out of the body keeps its current value. Sending avatar_url as an empty string removes the picture. Email cannot be changed here because it is the login identifier.
+//	@Tags			User
+//	@Accept			json
+//	@Produce		json
+//	@Param			payload	body		updateProfileRequest	true	"Fields to change"
+//	@Success		200		{object}	UserViewModelResponse
+//	@Failure		400		{object}	JSONError	"A name is outside 2-100 characters, or avatar_url is not an http(s) URL"
+//	@Failure		401		{object}	JSONError
+//	@Failure		404		{object}	JSONError	"The account no longer exists"
+//	@Failure		409		{object}	JSONError	"The username is taken"
+//	@Failure		500		{object}	JSONError
+//	@Router			/users/me [patch]
+func (app *application) updateProfileHandler(w http.ResponseWriter, r *http.Request) {
+	var req updateProfileRequest
+	if err := readJSON(w, r, &req); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	// Start from the copy requireAuth already loaded for this request, so any
+	// field the caller left out keeps the value it has in the database.
+	//
+	// Bắt đầu từ bản mà requireAuth đã đọc sẵn cho request này, để field nào
+	// người gọi không gửi thì giữ nguyên giá trị đang có trong database.
+	user := *authUser(r)
+
+	if req.FirstName != nil {
+		user.FirstName = strings.TrimSpace(*req.FirstName)
+	}
+	if req.LastName != nil {
+		user.LastName = strings.TrimSpace(*req.LastName)
+	}
+	if req.UserName != nil {
+		user.UserName = strings.TrimSpace(*req.UserName)
+	}
+	if req.AvatarURL != nil {
+		user.AvatarURL = strings.TrimSpace(*req.AvatarURL)
+	}
+
+	if err := validateProfile(&user); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	if err := app.store.User.Update(r.Context(), &user); err != nil {
+		switch {
+		case errors.Is(err, store.ErrDuplicateUsername):
+			app.conflictResponse(w, r, err)
+		case errors.Is(err, store.ErrNotFound):
+			app.notFoundResponse(w, r, err)
+		default:
+			app.internalServerError(w, r, err)
+		}
+		return
+	}
+
+	if err := app.jsonResponse(w, r, http.StatusOK, user, "profile updated successfully"); err != nil {
 		app.internalServerError(w, r, err)
 	}
 }
