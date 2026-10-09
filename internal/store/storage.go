@@ -28,6 +28,7 @@ type Storage struct {
 		Delete(context.Context, int64) error
 		GetUserFeed(context.Context, int64, PaginationQuery) ([]model.FeedPost, int64, error)
 		GetByUser(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error)
+		CountByUser(ctx context.Context, authorID int64) (int64, error)
 	}
 
 	User interface {
@@ -38,7 +39,7 @@ type Storage struct {
 		Update(context.Context, *model.User) error
 		GetById(context.Context, int64) (*model.User, error)
 		GetByEmail(context.Context, string) (*model.User, error)
-		Search(ctx context.Context, viewerID int64, q string, page PaginationQuery) ([]model.SearchedUser, int64, error)
+		Search(ctx context.Context, viewerID int64, q string, page PaginationQuery) ([]model.UserSummary, int64, error)
 	}
 
 	Comment interface {
@@ -52,6 +53,8 @@ type Storage struct {
 		GetFollowing(context.Context, int64, PaginationQuery) ([]model.Follow, int64, error)
 		IsFollowing(context.Context, int64, int64) (bool, error)
 		Counts(ctx context.Context, userID int64) (followers int64, following int64, err error)
+		Followers(ctx context.Context, userID, viewerID int64, page PaginationQuery) ([]model.UserSummary, int64, error)
+		Following(ctx context.Context, userID, viewerID int64, page PaginationQuery) ([]model.UserSummary, int64, error)
 	}
 	Block interface {
 		Block(ctx context.Context, blockerId int64, blockedId int64) error

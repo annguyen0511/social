@@ -87,6 +87,78 @@ func (s *FollowStore) Counts(ctx context.Context, userID int64) (int64, int64, e
 	return followers, following, err
 }
 
+// Followers lists the people who follow userID, and Following the people
+// userID follows. Both report, for each row, whether viewerID already follows
+// that person, so a list can draw its follow buttons without one request per
+// row.
+//
+// The two differ by a single column, and that column is the whole meaning:
+// swap following_id and follower_id and each list quietly becomes the other.
+//
+// Followers liệt kê những người theo dõi userID, còn Following là những người
+// userID đang theo dõi. Cả hai đều báo kèm, cho từng dòng, việc viewerID đã
+// theo dõi người đó hay chưa, để danh sách vẽ được nút theo dõi mà không cần
+// một request cho mỗi dòng.
+//
+// Hai hàm chỉ khác nhau đúng một cột, mà chính cột đó là toàn bộ ý nghĩa:
+// đổi chỗ following_id với follower_id thì mỗi danh sách lặng lẽ biến thành
+// cái kia.
+func (s *FollowStore) Followers(ctx context.Context, userID, viewerID int64, page PaginationQuery) ([]model.UserSummary, int64, error) {
+	return s.listPeople(ctx, "f.following_id", "f.follower_id", userID, viewerID, page)
+}
+
+func (s *FollowStore) Following(ctx context.Context, userID, viewerID int64, page PaginationQuery) ([]model.UserSummary, int64, error) {
+	return s.listPeople(ctx, "f.follower_id", "f.following_id", userID, viewerID, page)
+}
+
+// listPeople is the body both lists share. matchColumn is the side that equals
+// userID, and personColumn is the side holding the person to return.
+//
+// The two column names are interpolated rather than bound as parameters
+// because a placeholder cannot name a column. They are constants from the two
+// callers above and never come from a request, which is what keeps this from
+// being an injection.
+//
+// listPeople là phần thân chung của hai danh sách. matchColumn là phía bằng
+// userID, còn personColumn là phía chứa người cần trả về.
+//
+// Hai tên cột được nối thẳng vào chuỗi chứ không truyền như tham số, vì một
+// placeholder không thể đặt tên cột. Chúng là hằng số đến từ hai hàm ngay
+// phía trên và không bao giờ đến từ request — đó chính là thứ khiến đây không
+// phải một lỗ hổng tiêm nhiễm.
+func (s *FollowStore) listPeople(
+	ctx context.Context,
+	matchColumn, personColumn string,
+	userID, viewerID int64,
+	page PaginationQuery,
+) ([]model.UserSummary, int64, error) {
+	countQuery := `SELECT COUNT(*) FROM follows f WHERE ` + matchColumn + ` = $1`
+	pageQuery := `
+	SELECT u.id, u.first_name, u.last_name, COALESCE(u.avatar_url, ''), u.username,
+	       u.email, u.is_active, u.created_at, u.updated_at,
+	       EXISTS (
+	         SELECT 1 FROM follows v
+	         WHERE v.follower_id = $2 AND v.following_id = u.id
+	       ) AS is_following
+	FROM follows f
+	JOIN users u ON u.id = ` + personColumn + `
+	WHERE ` + matchColumn + ` = $1
+	ORDER BY f.created_at DESC, u.id DESC
+	LIMIT $3 OFFSET $4
+	`
+
+	return paginateWith(ctx, s.db, page, countQuery, []any{userID}, pageQuery, []any{userID, viewerID},
+		func(rows *sql.Rows) (model.UserSummary, error) {
+			var user model.UserSummary
+			err := rows.Scan(
+				&user.ID, &user.FirstName, &user.LastName, &user.AvatarURL, &user.UserName,
+				&user.Email, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+				&user.IsFollowing,
+			)
+			return user, err
+		})
+}
+
 func (s *FollowStore) GetFollowers(ctx context.Context, followingId int64, page PaginationQuery) ([]model.Follow, int64, error) {
 	countQuery := `SELECT COUNT(*) FROM follows WHERE following_id = $1`
 	pageQuery := `

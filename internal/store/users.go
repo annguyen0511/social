@@ -268,7 +268,7 @@ func (u *UserStore) GetByEmail(ctx context.Context, email string) (*model.User, 
 // ILIKE mở đầu bằng ký tự đại diện vốn buộc quét toàn bảng, nhưng index GIN
 // trigram biến nó thành tra cứu theo index. Các biểu thức ở đây phải trùng
 // từng ký tự với biểu thức dùng để tạo index.
-func (u *UserStore) Search(ctx context.Context, viewerID int64, q string, page PaginationQuery) ([]model.SearchedUser, int64, error) {
+func (u *UserStore) Search(ctx context.Context, viewerID int64, q string, page PaginationQuery) ([]model.UserSummary, int64, error) {
 	filter := `
 	FROM users u
 	WHERE u.is_active
@@ -305,8 +305,8 @@ func (u *UserStore) Search(ctx context.Context, viewerID int64, q string, page P
 	LIMIT $3 OFFSET $4
 	`
 
-	return paginate(ctx, u.db, page, countQuery, pageQuery, []any{viewerID, q}, func(rows *sql.Rows) (model.SearchedUser, error) {
-		var user model.SearchedUser
+	return paginate(ctx, u.db, page, countQuery, pageQuery, []any{viewerID, q}, func(rows *sql.Rows) (model.UserSummary, error) {
+		var user model.UserSummary
 		err := rows.Scan(
 			&user.ID, &user.FirstName, &user.LastName, &user.AvatarURL, &user.UserName,
 			&user.Email, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,

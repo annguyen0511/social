@@ -64,6 +64,7 @@ func getUserFromContext(r *http.Request) (*model.User, bool) {
 // nào có người quên sẽ hiện ra một con số sai.
 type userProfile struct {
 	model.User
+	PostsCount     int64 `json:"posts_count" example:"42"`
 	FollowersCount int64 `json:"followers_count" example:"128"`
 	FollowingCount int64 `json:"following_count" example:"87"`
 } //@name UserProfileViewModel
@@ -92,7 +93,18 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile := userProfile{User: *user, FollowersCount: followers, FollowingCount: following}
+	posts, err := app.store.Post.CountByUser(r.Context(), user.ID)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	profile := userProfile{
+		User:           *user,
+		PostsCount:     posts,
+		FollowersCount: followers,
+		FollowingCount: following,
+	}
 
 	if err := app.jsonResponse(w, r, http.StatusOK, profile, "user retrieved successfully"); err != nil {
 		app.internalServerError(w, r, err)
@@ -268,6 +280,76 @@ func (app *application) listUserPostsHandler(w http.ResponseWriter, r *http.Requ
 	app.jsonResponse(w, r, http.StatusOK, newPagination(posts, page, total), "posts retrieved successfully")
 }
 
+// listFollowersOfUserHandler godoc
+//
+//	@Summary		List a user's followers
+//	@Description	The people who follow the user in the route, most recent first. Each row says whether you already follow that person.
+//	@Tags			User
+//	@Produce		json
+//	@Param			userID		path		int	true	"User ID"
+//	@Param			page		query		int	false	"Page number, starting at 1"	default(1)	minimum(1)
+//	@Param			page_size	query		int	false	"Items per page"				default(20)	minimum(1)	maximum(100)
+//	@Success		200			{object}	UserSummaryViewModelPaginationResponse
+//	@Failure		400			{object}	JSONError
+//	@Failure		401			{object}	JSONError
+//	@Failure		404			{object}	JSONError
+//	@Failure		500			{object}	JSONError
+//	@Router			/users/{userID}/followers [get]
+func (app *application) listFollowersOfUserHandler(w http.ResponseWriter, r *http.Request) {
+	app.listPeopleHandler(w, r, app.store.Follow.Followers, "followers retrieved successfully")
+}
+
+// listFollowingOfUserHandler godoc
+//
+//	@Summary		List who a user follows
+//	@Description	The people the user in the route follows, most recent first. Each row says whether you already follow that person.
+//	@Tags			User
+//	@Produce		json
+//	@Param			userID		path		int	true	"User ID"
+//	@Param			page		query		int	false	"Page number, starting at 1"	default(1)	minimum(1)
+//	@Param			page_size	query		int	false	"Items per page"				default(20)	minimum(1)	maximum(100)
+//	@Success		200			{object}	UserSummaryViewModelPaginationResponse
+//	@Failure		400			{object}	JSONError
+//	@Failure		401			{object}	JSONError
+//	@Failure		404			{object}	JSONError
+//	@Failure		500			{object}	JSONError
+//	@Router			/users/{userID}/following [get]
+func (app *application) listFollowingOfUserHandler(w http.ResponseWriter, r *http.Request) {
+	app.listPeopleHandler(w, r, app.store.Follow.Following, "following retrieved successfully")
+}
+
+// listPeopleHandler is the body both people lists share: the two differ only
+// in which store method they call.
+//
+// listPeopleHandler là phần thân chung của hai danh sách người: hai bên chỉ
+// khác nhau ở method nào của store được gọi.
+func (app *application) listPeopleHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	list func(context.Context, int64, int64, store.PaginationQuery) ([]model.UserSummary, int64, error),
+	message string,
+) {
+	target, ok := getUserFromContext(r)
+	if !ok {
+		app.internalServerError(w, r, errors.New("user missing from request context"))
+		return
+	}
+
+	page, err := readPagination(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	people, total, err := list(r.Context(), target.ID, authUser(r).ID, page)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	app.jsonResponse(w, r, http.StatusOK, newPagination(people, page, total), message)
+}
+
 // minSearchQuery keeps a one-character query from matching almost everyone.
 // Trigram matching needs three characters to use the index well, but two is a
 // reasonable floor for short usernames.
@@ -286,7 +368,7 @@ const minSearchQuery = 2
 //	@Param			q			query		string	true	"Text to search for, at least 2 characters"
 //	@Param			page		query		int		false	"Page number, starting at 1"	default(1)	minimum(1)
 //	@Param			page_size	query		int		false	"Items per page"				default(20)	minimum(1)	maximum(100)
-//	@Success		200			{object}	UserSearchViewModelPaginationResponse
+//	@Success		200			{object}	UserSummaryViewModelPaginationResponse
 //	@Failure		400			{object}	JSONError	"q is shorter than 2 characters, or the paging parameters are invalid"
 //	@Failure		401			{object}	JSONError
 //	@Failure		500			{object}	JSONError

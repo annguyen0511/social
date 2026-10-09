@@ -150,6 +150,17 @@ func (s *PostStore) Delete(ctx context.Context, id int64) error {
 // Nó dùng chung cách đếm bằng truy vấn con với GetUserFeed, vì cùng một lý do
 // khiến bên kia phải dùng: join sang comments và likes sẽ nhân số dòng lên và
 // làm phồng cả hai con số.
+// CountByUser returns how many posts an author has written.
+// CountByUser trả về số bài một tác giả đã viết.
+func (s *PostStore) CountByUser(ctx context.Context, authorID int64) (int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	var total int64
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM posts WHERE user_id = $1`, authorID).Scan(&total)
+	return total, err
+}
+
 func (s *PostStore) GetByUser(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
 	countQuery := `SELECT COUNT(*) FROM posts p WHERE p.user_id = $1`
 	pageQuery := `

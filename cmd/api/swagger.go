@@ -22,12 +22,12 @@ type FeedPostViewModelPagination Pagination[model.FeedPost]       //@name FeedPo
 type FollowViewModelPagination Pagination[model.Follow]           //@name FollowViewModelPagination
 type BlockViewModelPagination Pagination[model.Block]             //@name BlockViewModelPagination
 type UserViewModelPagination Pagination[model.User]               //@name UserViewModelPagination
-type UserSearchViewModelPagination Pagination[model.SearchedUser] //@name UserSearchViewModelPagination
+type UserSummaryViewModelPagination Pagination[model.UserSummary] //@name UserSummaryViewModelPagination
 type UserIDPagination Pagination[int64]                           //@name UserIDPagination
 
-type FeedPostViewModelPaginationResponse Response[FeedPostViewModelPagination]     //@name FeedPostViewModelPaginationResponse
-type FollowViewModelPaginationResponse Response[FollowViewModelPagination]         //@name FollowViewModelPaginationResponse
-type BlockViewModelPaginationResponse Response[BlockViewModelPagination]           //@name BlockViewModelPaginationResponse
-type UserViewModelPaginationResponse Response[UserViewModelPagination]             //@name UserViewModelPaginationResponse
-type UserSearchViewModelPaginationResponse Response[UserSearchViewModelPagination] //@name UserSearchViewModelPaginationResponse
-type UserIDPaginationResponse Response[UserIDPagination]                           //@name UserIDPaginationResponse
+type FeedPostViewModelPaginationResponse Response[FeedPostViewModelPagination]       //@name FeedPostViewModelPaginationResponse
+type FollowViewModelPaginationResponse Response[FollowViewModelPagination]           //@name FollowViewModelPaginationResponse
+type BlockViewModelPaginationResponse Response[BlockViewModelPagination]             //@name BlockViewModelPaginationResponse
+type UserViewModelPaginationResponse Response[UserViewModelPagination]               //@name UserViewModelPaginationResponse
+type UserSummaryViewModelPaginationResponse Response[UserSummaryViewModelPagination] //@name UserSummaryViewModelPaginationResponse
+type UserIDPaginationResponse Response[UserIDPagination]                             //@name UserIDPaginationResponse
