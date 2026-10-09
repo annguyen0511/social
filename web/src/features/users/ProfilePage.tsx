@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Ban, Loader2, ShieldOff, Star, StarOff } from 'lucide-react'
+import { ArrowLeft, Ban, Loader2, Pencil, ShieldOff, Star, StarOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { HttpError, del, get, put } from '../../api/client'
 import type { FriendshipStatus, User } from '../../api/types'
+import { EditProfileDialog } from './EditProfileDialog'
 import { FollowButton } from './FollowButton'
 import { UserAvatar } from './UserAvatar'
 
@@ -74,6 +76,7 @@ function RelationButton({
 export function ProfilePage() {
   const { userID = '' } = useParams()
   const id = Number(userID)
+  const [editing, setEditing] = useState(false)
 
   const user = useQuery({
     queryKey: ['users', userID],
@@ -166,7 +169,15 @@ export function ProfilePage() {
           </h1>
           <p className="truncate text-muted-foreground">@{user.data.username}</p>
 
-          {isSelf && <p className="mt-3 text-sm text-muted-foreground">Đây là trang của bạn.</p>}
+          {isSelf && (
+            <div className="mt-4">
+              <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
+                <Pencil />
+                Chỉnh sửa
+              </Button>
+              <EditProfileDialog user={user.data} open={editing} onOpenChange={setEditing} />
+            </div>
+          )}
 
           {/* Chỉ vẽ các nút khi đã biết quan hệ. Vẽ sớm hơn thì nút sẽ hiện
               trạng thái đoán, rồi tự nhảy sang trạng thái thật.

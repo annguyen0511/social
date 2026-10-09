@@ -47,6 +47,18 @@ export type SearchedUser = User & {
   is_following: boolean
 }
 
+// Mỗi field là optional: field không gửi thì giữ nguyên giá trị cũ. Gửi
+// avatar_url là chuỗi rỗng nghĩa là xoá ảnh.
+//
+// Every field is optional: one left out keeps its current value. Sending
+// avatar_url as an empty string removes the picture.
+export type ProfileUpdate = {
+  first_name?: string
+  last_name?: string
+  username?: string
+  avatar_url?: string
+}
+
 export type FriendshipStatus = {
   user_id: number
   is_following: boolean
