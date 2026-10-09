@@ -13,7 +13,7 @@ ENV_SH = set -a; [ -f .envrc ] && . ./.envrc || true; set +a;
 
 MIGRATIONS_DIR = cmd/migrate/migrations
 
-.PHONY: migrate-create migrate-up migrate-down migrate-status run build dev web seed seed-reset gen-docs
+.PHONY: migrate-create migrate-up migrate-down migrate-status run build dev dev-public web tunnel tunnel-quick seed seed-reset gen-docs
 
 # Số lượng bản ghi seed, ghi đè được: make seed USERS=10 POSTS=20 COMMENTS=50
 USERS ?= 100
@@ -66,6 +66,32 @@ dev:
 	$(ENV_SH) air 2>&1 | sed -u 's/^/[api] /' & \
 	($(ENV_SH) cd web && PATH="$(NODE_BIN):$$PATH" $(PNPM) dev 2>&1 | sed -u 's/^/[web] /') & \
 	wait
+
+# Tunnel cố định: URL không đổi giữa các lần chạy. Cần tài khoản Cloudflare và
+# một tên miền đã trỏ nameserver về Cloudflare. Tạo một lần bằng
+# `cloudflared tunnel create $(TUNNEL_NAME)`.
+#
+# Named tunnel: the URL survives restarts. Needs a Cloudflare account and a
+# domain on Cloudflare. Create it once with `cloudflared tunnel create`.
+TUNNEL_NAME ?= social-dev
+tunnel:
+	@cloudflared tunnel run $(TUNNEL_NAME)
+
+# Tunnel tạm: không cần tài khoản, nhưng URL ngẫu nhiên mỗi lần chạy nên phải
+# cập nhật FRONTEND_URL và khởi động lại API sau mỗi lần mở.
+#
+# Quick tunnel: no account needed, but the URL is random every run, so
+# FRONTEND_URL has to change and the API restart each time.
+tunnel-quick:
+	@./scripts/tunnel-quick.sh
+
+# Mở tunnel trước, ghi URL vào .envrc, rồi mới chạy api + frontend với môi
+# trường đã cập nhật. Một lệnh duy nhất nên không còn thứ tự nào để làm sai.
+#
+# Opens the tunnel, writes its URL into .envrc, then starts api + frontend
+# with the updated environment. One command, so the ordering cannot go wrong.
+dev-public:
+	@./scripts/tunnel-quick.sh $(MAKE) dev
 
 # Chỉ chạy frontend / frontend only
 web:
