@@ -61,10 +61,12 @@ func getPostFromContext(r *http.Request) (*model.Post, bool) {
 // nhập cũng sửa hoặc xoá được bài của người khác chỉ cần biết id. Phép kiểm
 // đặt ở đây chứ không đặt trong từng handler, để sau này có thêm handler nào
 // sửa bài thì cũng không thể quên.
+var errPostMissing = errors.New("post missing from request context")
+
 func (app *application) requireOwnPost(w http.ResponseWriter, r *http.Request) (*model.Post, bool) {
 	post, ok := getPostFromContext(r)
 	if !ok {
-		app.internalServerError(w, r, errors.New("post missing from request context"))
+		app.internalServerError(w, r, errPostMissing)
 		return nil, false
 	}
 
@@ -232,6 +234,19 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	post.Comments = comments
+
+	// GetById knows nothing about who is asking, so the like state is read
+	// here, where the signed-in user is known.
+	//
+	// GetById không biết gì về người đang hỏi, nên trạng thái thích được đọc ở
+	// đây, nơi đã biết ai là người đăng nhập.
+	likeCount, isLiked, err := app.store.Like.Stats(r.Context(), post.ID, authUser(r).ID)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+	post.LikeCount = likeCount
+	post.IsLiked = isLiked
 
 	err = app.jsonResponse(w, r, http.StatusOK, post, "Success")
 	if err != nil {

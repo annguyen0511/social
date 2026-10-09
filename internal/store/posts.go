@@ -150,27 +150,28 @@ func (s *PostStore) Delete(ctx context.Context, id int64) error {
 // Nó dùng chung cách đếm bằng truy vấn con với GetUserFeed, vì cùng một lý do
 // khiến bên kia phải dùng: join sang comments và likes sẽ nhân số dòng lên và
 // làm phồng cả hai con số.
-func (s *PostStore) GetByUser(ctx context.Context, authorID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
+func (s *PostStore) GetByUser(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
 	countQuery := `SELECT COUNT(*) FROM posts p WHERE p.user_id = $1`
 	pageQuery := `
 	SELECT
 		p.id, p.user_id, u.username, u.first_name, u.last_name, COALESCE(u.avatar_url, ''), p.title, p.content, p.tags,
 		p.created_at, p.updated_at, p.version,
 		(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
-		(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count
+		(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
+		EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $2) AS is_liked
 	FROM posts p
 	JOIN users u ON u.id = p.user_id
 	WHERE p.user_id = $1
 	ORDER BY p.created_at DESC, p.id DESC
-	LIMIT $2 OFFSET $3
+	LIMIT $3 OFFSET $4
 	`
 
-	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{authorID}, func(rows *sql.Rows) (model.FeedPost, error) {
+	return paginateWith(ctx, s.db, page, countQuery, []any{authorID}, pageQuery, []any{authorID, viewerID}, func(rows *sql.Rows) (model.FeedPost, error) {
 		var post model.FeedPost
 		err := rows.Scan(
 			&post.ID, &post.UserID, &post.User.UserName, &post.User.FirstName, &post.User.LastName, &post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags),
 			&post.CreatedAt, &post.UpdatedAt, &post.Version,
-			&post.CommentCount, &post.LikeCount,
+			&post.CommentCount, &post.LikeCount, &post.IsLiked,
 		)
 		post.User.ID = post.UserID
 		return post, err
@@ -192,7 +193,8 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 		p.id, p.user_id, u.username, u.first_name, u.last_name, COALESCE(u.avatar_url, ''), p.title, p.content, p.tags,
 		p.created_at, p.updated_at, p.version,
 		(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
-		(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count
+		(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
+		EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) AS is_liked
 	FROM posts p
 	JOIN users u ON u.id = p.user_id
 	WHERE ` + feedFilter + `
@@ -205,7 +207,7 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 		err := rows.Scan(
 			&post.ID, &post.UserID, &post.User.UserName, &post.User.FirstName, &post.User.LastName, &post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags),
 			&post.CreatedAt, &post.UpdatedAt, &post.Version,
-			&post.CommentCount, &post.LikeCount,
+			&post.CommentCount, &post.LikeCount, &post.IsLiked,
 		)
 		post.User.ID = post.UserID
 		return post, err

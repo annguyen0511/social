@@ -27,7 +27,7 @@ type Storage struct {
 		GetById(context.Context, int64) (*model.Post, error)
 		Delete(context.Context, int64) error
 		GetUserFeed(context.Context, int64, PaginationQuery) ([]model.FeedPost, int64, error)
-		GetByUser(ctx context.Context, authorID int64, page PaginationQuery) ([]model.FeedPost, int64, error)
+		GetByUser(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error)
 	}
 
 	User interface {
@@ -58,6 +58,11 @@ type Storage struct {
 		ListBlocking(ctx context.Context, blockerId int64, page PaginationQuery) ([]model.Block, int64, error)
 		IsBlocking(ctx context.Context, blockerId int64, blockedId int64) (bool, error)
 	}
+	Like interface {
+		Like(ctx context.Context, postID, userID int64) error
+		Unlike(ctx context.Context, postID, userID int64) error
+		Stats(ctx context.Context, postID, viewerID int64) (int64, bool, error)
+	}
 	CloseFriend interface {
 		Add(ctx context.Context, userID int64, friendID int64) error
 		Remove(ctx context.Context, userID int64, friendID int64) error
@@ -73,6 +78,7 @@ func NewStorage(db *sql.DB) Storage {
 		Comment:     &CommentStore{db},
 		Follow:      &FollowStore{db},
 		Block:       &BlockStore{db},
+		Like:        &LikeStore{db},
 		CloseFriend: &CloseFriendStore{db},
 	}
 }

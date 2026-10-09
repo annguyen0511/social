@@ -15,6 +15,7 @@ type UserRegisteredViewModelResponse Response[registeredUser] //@name UserRegist
 type PostViewModelResponse Response[model.Post]                   //@name PostViewModelResponse
 type UserViewModelResponse Response[model.User]                   //@name UserViewModelResponse
 type FriendshipStatusViewModelResponse Response[friendshipStatus] //@name FriendshipStatusViewModelResponse
+type LikeViewModelResponse Response[likeState]                    //@name LikeViewModelResponse
 
 type FeedPostViewModelPagination Pagination[model.FeedPost]       //@name FeedPostViewModelPagination
 type FollowViewModelPagination Pagination[model.Follow]           //@name FollowViewModelPagination

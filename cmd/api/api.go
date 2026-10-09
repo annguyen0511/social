@@ -140,6 +140,8 @@ func (app *application) mount() *chi.Mux {
 
 				r.Get("/", app.getPostHandler)
 				r.Post("/comment", app.createCommentHandler)
+				r.Put("/like", app.likeHandler)
+				r.Delete("/like", app.unlikeHandler)
 				r.Patch("/", app.updatePostHandler)
 				r.Delete("/", app.deletePostHandler)
 			})

@@ -231,7 +231,7 @@ func (app *application) listUserPostsHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	posts, total, err := app.store.Post.GetByUser(r.Context(), author.ID, page)
+	posts, total, err := app.store.Post.GetByUser(r.Context(), author.ID, authUser(r).ID, page)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
