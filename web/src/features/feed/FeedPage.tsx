@@ -1,12 +1,11 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, LogOut } from 'lucide-react'
+import { Link, Navigate } from 'react-router-dom'
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { HttpError, get, post } from '../../api/client'
+import { get, isUnauthorized } from '../../api/client'
 import type { FeedPost, Pagination } from '../../api/types'
-import { UserSearch } from '../users/UserSearch'
 
 /**
  * The feed, paged with useInfiniteQuery.
@@ -22,9 +21,6 @@ import { UserSearch } from '../users/UserSearch'
  * dòng. Sau này API đổi sang cursor thì chỉ phải sửa getNextPageParam.
  */
 export function FeedPage() {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-
   const query = useInfiniteQuery({
     queryKey: ['feed'],
     initialPageParam: 1,
@@ -33,53 +29,21 @@ export function FeedPage() {
     getNextPageParam: (last) => (last.page < last.total_pages ? last.page + 1 : undefined),
   })
 
-  const logout = useMutation({
-    mutationFn: () => post<null>('/v1/authentication/logout'),
-    onSuccess: () => {
-      // The cache lives in memory and does not follow the session cookie out.
-      // Without this, whoever signs in next on this machine sees the previous
-      // person's feed for the moment before the new requests land.
-      //
-      // Cache nằm trong RAM và không mất đi theo cookie phiên. Thiếu dòng này,
-      // người đăng nhập tiếp theo trên cùng máy sẽ thấy feed của người trước
-      // trong khoảnh khắc trước khi các request mới về.
-      queryClient.clear()
-      navigate('/login')
-    },
-  })
-
-  // A 401 means the session is gone: expired, logged out in another tab, or
-  // the account was removed. Send the reader to the login page.
+  // The layout watches the same thing, but a session can die between its check
+  // and this request, and a 401 here must not be rendered as a broken feed.
   //
-  // 401 nghĩa là phiên không còn: hết hạn, đã đăng xuất ở tab khác, hoặc tài
-  // khoản bị xoá. Đưa người dùng về trang đăng nhập.
-  if (query.error instanceof HttpError && query.error.status === 401) {
-    return (
-      <main className="grid min-h-dvh place-items-center p-6">
-        <div className="text-center">
-          <p className="mb-4 text-muted-foreground">Phiên đăng nhập đã hết.</p>
-          <Button asChild>
-            <Link to="/login">Đăng nhập lại</Link>
-          </Button>
-        </div>
-      </main>
-    )
+  // Layout cũng theo dõi điều này, nhưng phiên có thể chết trong khoảng giữa
+  // lần kiểm của nó và request này, và 401 ở đây không được hiện ra thành một
+  // feed hỏng.
+  if (isUnauthorized(query.error)) {
+    return <Navigate to="/login" replace />
   }
 
   const posts = query.data?.pages.flatMap((p) => p.items) ?? []
 
   return (
     <main className="mx-auto max-w-2xl p-6">
-      <header className="mb-6 space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-xl font-semibold">Bảng tin</h1>
-          <Button variant="ghost" size="sm" onClick={() => logout.mutate()}>
-            <LogOut />
-            Đăng xuất
-          </Button>
-        </div>
-        <UserSearch />
-      </header>
+      <h1 className="mb-6 text-xl font-semibold">Bảng tin</h1>
 
       {query.isPending && (
         <div className="space-y-4">

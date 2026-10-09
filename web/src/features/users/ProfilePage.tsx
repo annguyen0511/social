@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Ban, Loader2, Pencil, ShieldOff, Star, StarOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { HttpError, del, get, put } from '../../api/client'
+import { HttpError, del, get, isUnauthorized, put } from '../../api/client'
 import type { FriendshipStatus, User } from '../../api/types'
 import { EditProfileDialog } from './EditProfileDialog'
 import { FollowButton } from './FollowButton'
@@ -103,21 +103,13 @@ export function ProfilePage() {
     enabled: me.isSuccess && !isSelf && Number.isFinite(id),
   })
 
-  const unauthorized = [user.error, me.error].some(
-    (error) => error instanceof HttpError && error.status === 401,
-  )
-
-  if (unauthorized) {
-    return (
-      <main className="grid min-h-dvh place-items-center p-6">
-        <div className="text-center">
-          <p className="mb-4 text-muted-foreground">Phiên đăng nhập đã hết.</p>
-          <Button asChild>
-            <Link to="/login">Đăng nhập lại</Link>
-          </Button>
-        </div>
-      </main>
-    )
+  // Layout đã lo việc đưa về trang đăng nhập, nhưng phiên có thể chết giữa
+  // lần kiểm của nó và các request ở đây.
+  //
+  // The layout already handles sending the reader to login, but the session
+  // can die between its check and the requests on this page.
+  if (isUnauthorized(user.error) || isUnauthorized(me.error)) {
+    return <Navigate to="/login" replace />
   }
 
   if (user.isPending) {
@@ -153,14 +145,7 @@ export function ProfilePage() {
 
   return (
     <main className="mx-auto max-w-2xl p-6">
-      <Button asChild variant="ghost" size="sm" className="-ml-2">
-        <Link to="/">
-          <ArrowLeft />
-          Bảng tin
-        </Link>
-      </Button>
-
-      <header className="mt-4 flex items-start gap-4 rounded-xl border border-border p-6">
+      <header className="flex items-start gap-4 rounded-xl border border-border p-6">
         <UserAvatar user={user.data} className="size-18 text-lg" />
 
         <div className="min-w-0 flex-1">

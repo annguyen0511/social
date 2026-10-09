@@ -7,6 +7,22 @@ import type { ApiError, Envelope } from './types'
 // production thì trỏ VITE_API_URL tới origin thật của API.
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
+/**
+ * Reports whether an error is the API refusing for lack of a session.
+ *
+ * A 401 is never worth showing as an error message: the session is gone, so
+ * the only useful response is to send the reader to the login page. Having one
+ * predicate keeps every caller agreeing on what that looks like.
+ *
+ * Cho biết một lỗi có phải là API từ chối vì không có phiên đăng nhập.
+ *
+ * 401 không bao giờ đáng hiện ra như một thông báo lỗi: phiên đã mất, nên
+ * phản ứng duy nhất có ích là đưa người dùng về trang đăng nhập. Gom thành
+ * một hàm để mọi nơi gọi đều hiểu giống nhau.
+ */
+export const isUnauthorized = (error: unknown): boolean =>
+  error instanceof HttpError && error.status === 401
+
 export class HttpError extends Error {
   constructor(
     readonly status: number,
