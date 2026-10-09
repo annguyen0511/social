@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { HttpError, del, get, isUnauthorized, put } from '../../api/client'
 import type { FriendshipStatus, User } from '../../api/types'
+import { NewPostButton } from '../posts/NewPostButton'
 import { PostList } from '../posts/PostList'
 import { EditProfileDialog } from './EditProfileDialog'
 import { FollowButton } from './FollowButton'
@@ -207,7 +208,10 @@ export function ProfilePage() {
       </header>
 
       <section className="mt-6">
-        <h2 className="mb-3 font-semibold">Bài viết</h2>
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <h2 className="font-semibold">Bài viết</h2>
+          {isSelf && <NewPostButton />}
+        </div>
         {/* queryKey mang userID để hai trang cá nhân khác nhau không dùng
             chung cache, nhưng vẫn bắt đầu bằng 'userPosts' để một bài mới
             đăng làm mới được mọi danh sách bằng một lần invalidate theo tiền

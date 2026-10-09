@@ -1,3 +1,4 @@
+import { NewPostButton } from '../posts/NewPostButton'
 import { PostList } from '../posts/PostList'
 
 /**
@@ -14,7 +15,10 @@ import { PostList } from '../posts/PostList'
 export function FeedPage() {
   return (
     <main className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-6 text-xl font-semibold">Bảng tin</h1>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold">Bảng tin</h1>
+        <NewPostButton />
+      </div>
 
       <PostList
         queryKey={['feed']}

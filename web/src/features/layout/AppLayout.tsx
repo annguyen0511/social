@@ -2,6 +2,7 @@ import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { get, isUnauthorized, post } from '../../api/client'
 import type { User } from '../../api/types'
+import { ComposerProvider } from '../posts/ComposerProvider'
 import { UserSearch } from '../users/UserSearch'
 import { AppSidebar } from './AppSidebar'
 
@@ -60,23 +61,25 @@ export function AppLayout() {
   }
 
   return (
-    <div className="min-h-dvh">
-      <AppSidebar me={me.data} onLogout={() => logout.mutate()} loggingOut={logout.isPending} />
+    <ComposerProvider>
+      <div className="min-h-dvh">
+        <AppSidebar me={me.data} onLogout={() => logout.mutate()} loggingOut={logout.isPending} />
 
-      {/* Chừa đúng bề rộng của thanh bên. Thanh bên dùng position: fixed nên
-          nó không tự đẩy nội dung sang.
+        {/* Chừa đúng bề rộng của thanh bên. Thanh bên dùng position: fixed nên
+            nó không tự đẩy nội dung sang.
 
-          Leaves exactly the rail's width. The rail is position: fixed, so it
-          does not push the content across on its own. */}
-      <div className="pl-16 lg:pl-60">
-        <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur">
-          <div className="mx-auto max-w-2xl px-6 py-3">
-            <UserSearch />
-          </div>
-        </header>
+            Leaves exactly the rail's width. The rail is position: fixed, so it
+            does not push the content across on its own. */}
+        <div className="pl-16 lg:pl-60">
+          <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur">
+            <div className="mx-auto max-w-2xl px-6 py-3">
+              <UserSearch />
+            </div>
+          </header>
 
-        <Outlet />
+          <Outlet />
+        </div>
       </div>
-    </div>
+    </ComposerProvider>
   )
 }

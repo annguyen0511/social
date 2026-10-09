@@ -1,10 +1,10 @@
-import { useState, type ComponentType } from 'react'
+import type { ComponentType } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { Compass, Heart, House, LogOut, MessageCircle, SquarePlus } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from 'cn'
 import type { User } from '../../api/types'
-import { CreatePostDialog } from '../posts/CreatePostDialog'
+import { useComposer } from '../posts/ComposerProvider'
 import { UserAvatar } from '../users/UserAvatar'
 
 type NavItem = {
@@ -47,7 +47,7 @@ export function AppSidebar({
   onLogout: () => void
   loggingOut: boolean
 }) {
-  const [composing, setComposing] = useState(false)
+  const openComposer = useComposer()
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-16 flex-col border-r border-border bg-background px-2 py-4 lg:w-60 lg:px-3">
@@ -90,13 +90,11 @@ export function AppSidebar({
 
             "Tạo" opens a dialog instead of navigating, so it is not in the
             items array, which only describes navigation targets. */}
-        <button type="button" onClick={() => setComposing(true)} className={cn(row, 'hover:bg-muted')}>
+        <button type="button" onClick={openComposer} className={cn(row, 'hover:bg-muted')}>
           <SquarePlus className="size-6 shrink-0" />
           <span className={label}>Tạo</span>
         </button>
       </nav>
-
-      <CreatePostDialog open={composing} onOpenChange={setComposing} />
 
       <div className="flex flex-col gap-1">
         {/* Avatar của chính mình, dẫn tới trang cá nhân. Chưa tải xong thì giữ
