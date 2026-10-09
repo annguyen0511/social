@@ -1,6 +1,15 @@
-# Không bắt buộc: clone mới chưa có .envrc vẫn chạy được build/run/gen-docs.
-# Các lệnh migrate-* và seed thì cần nó (cp .envrc.example .envrc).
--include .envrc
+# KHÔNG dùng `include .envrc`. make đọc file theo cú pháp của nó, nên
+# export FOO="bar" cho ra giá trị kèm nguyên cặp dấu nháy, rồi `export` đẩy
+# chuỗi hỏng đó xuống mọi tiến trình con và ghi đè giá trị đúng của direnv.
+# Hậu quả: chuỗi kết nối DB không parse được và pq báo "SSL is not enabled".
+#
+# Never `include .envrc`. make parses it with its own syntax, so
+# export FOO="bar" keeps the quotes inside the value, and `export` then pushes
+# that broken string into every child process, overriding what direnv loaded.
+#
+# direnv đã nạp .envrc vào shell rồi; ENV_SH chỉ là phương án dự phòng cho máy
+# không dùng direnv. Nạp bằng shell nên dấu nháy được xử lý đúng.
+ENV_SH = set -a; [ -f .envrc ] && . ./.envrc || true; set +a;
 
 MIGRATIONS_DIR = cmd/migrate/migrations
 
@@ -17,27 +26,36 @@ migrate-create:
 
 # Chạy migration lên
 migrate-up:
-	@goose -dir $(MIGRATIONS_DIR) postgres "$(DB_ADDR)" up
+	@$(ENV_SH) goose -dir $(MIGRATIONS_DIR) postgres "$$DB_ADDR" up
 
 # Rollback 1 bước
 migrate-down:
-	@goose -dir $(MIGRATIONS_DIR) postgres "$(DB_ADDR)" down
+	@$(ENV_SH) goose -dir $(MIGRATIONS_DIR) postgres "$$DB_ADDR" down
 
 # Xem trạng thái migration	
 migrate-status:
-	@goose -dir $(MIGRATIONS_DIR) postgres "$(DB_ADDR)" status
+	@$(ENV_SH) goose -dir $(MIGRATIONS_DIR) postgres "$$DB_ADDR" status
 
 # Thêm dữ liệu mẫu (giữ nguyên dữ liệu cũ)
 seed:
-	@DB_ADDR=$(DB_ADDR) go run ./cmd/migrate/seed -users=$(USERS) -posts=$(POSTS) -comments=$(COMMENTS)
+	@$(ENV_SH) go run ./cmd/migrate/seed -users=$(USERS) -posts=$(POSTS) -comments=$(COMMENTS)
 
 # Xoá sạch users/posts/comments rồi seed lại từ đầu
 seed-reset:
-	@DB_ADDR=$(DB_ADDR) go run ./cmd/migrate/seed -reset -users=$(USERS) -posts=$(POSTS) -comments=$(COMMENTS)
+	@$(ENV_SH) go run ./cmd/migrate/seed -reset -users=$(USERS) -posts=$(POSTS) -comments=$(COMMENTS)
 
-# Chạy app
+# Chạy app. Build rồi exec thay vì `go run`: `go run` sinh một binary tạm làm
+# tiến trình con, và khi `go run` bị giết thì binary con thường sống sót, giữ
+# nguyên cổng 8080 và khiến lần chạy sau báo "address already in use". `exec`
+# thay thế hẳn shell bằng binary nên tín hiệu tới thẳng nó, không còn mồ côi.
+#
+# Build then exec instead of `go run`: `go run` compiles to a temporary binary
+# and runs it as a child, which survives when `go run` is killed and keeps
+# port 8080, so the next run fails with "address already in use". `exec`
+# replaces the shell with the binary, so signals reach it and nothing is
+# orphaned.
 run: gen-docs
-	@go run cmd/api/*.go
+	@$(ENV_SH) go build -o ./bin/main ./cmd/api && exec ./bin/main
 
 # Build binary vào bin/ (sinh swagger docs trước, vì docs/ không được commit)
 build: gen-docs
