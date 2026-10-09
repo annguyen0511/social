@@ -34,12 +34,16 @@ export function FollowButton({ userID, isFollowing, className }: Props) {
         : put<null>(`/v1/friend-ship/${userID}/follow`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
-      // Search rows carry is_following, and the profile page reads the same
-      // relationship from /friend-ship/{id}. Both are now stale.
+      // The whole 'users' prefix, not just search: a search row carries
+      // is_following, and a profile carries the follower count that this press
+      // just changed. Invalidating only one of them leaves a number on screen
+      // that contradicts the button beside it.
       //
-      // Mỗi dòng kết quả tìm kiếm mang theo is_following, còn trang profile
-      // đọc cùng quan hệ đó từ /friend-ship/{id}. Cả hai đều đã cũ.
-      queryClient.invalidateQueries({ queryKey: ['users', 'search'] })
+      // Cả tiền tố 'users' chứ không riêng search: một dòng kết quả tìm kiếm
+      // mang theo is_following, còn trang cá nhân mang con số người theo dõi
+      // mà cú bấm này vừa làm đổi. Chỉ làm mới một trong hai sẽ để lại trên
+      // màn hình một con số mâu thuẫn với chính cái nút bên cạnh nó.
+      queryClient.invalidateQueries({ queryKey: ['users'] })
       queryClient.invalidateQueries({ queryKey: ['friendship', userID] })
     },
   })

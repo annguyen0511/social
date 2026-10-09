@@ -23,3 +23,14 @@ export function formatDateTime(value: string): string {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? '' : dateTime.format(date)
 }
+
+const number = new Intl.NumberFormat('vi-VN')
+
+/**
+ * Formats a count. Four figures and up get a separator, so 1234 reads as
+ * 1.234 rather than as a number the eye has to parse digit by digit.
+ *
+ * Định dạng một con số đếm. Từ bốn chữ số trở lên sẽ có dấu phân cách, nên
+ * 1234 đọc thành 1.234 thay vì một dãy số mà mắt phải đếm từng chữ.
+ */
+export const formatCount = (value: number): string => number.format(value)

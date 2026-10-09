@@ -5,7 +5,8 @@ import { ArrowLeft, Ban, Loader2, Pencil, ShieldOff, Star, StarOff } from 'lucid
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { HttpError, del, get, isUnauthorized, put } from '../../api/client'
-import type { FriendshipStatus, User } from '../../api/types'
+import type { FriendshipStatus, User, UserProfile } from '../../api/types'
+import { formatCount } from '../../lib/format'
 import { NewPostButton } from '../posts/NewPostButton'
 import { PostList } from '../posts/PostList'
 import { EditProfileDialog } from './EditProfileDialog'
@@ -57,7 +58,7 @@ function RelationButton({
       // phụ trách.
       queryClient.invalidateQueries({ queryKey: ['friendship', userID] })
       queryClient.invalidateQueries({ queryKey: ['feed'] })
-      queryClient.invalidateQueries({ queryKey: ['users', 'search'] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
     },
   })
 
@@ -82,7 +83,7 @@ export function ProfilePage() {
 
   const user = useQuery({
     queryKey: ['users', userID],
-    queryFn: ({ signal }) => get<User>(`/v1/users/${userID}`, signal),
+    queryFn: ({ signal }) => get<UserProfile>(`/v1/users/${userID}`, signal),
   })
 
   // The client has no other way to know its own ID, and it needs it: the
@@ -155,6 +156,21 @@ export function ProfilePage() {
             {user.data.first_name} {user.data.last_name}
           </h1>
           <p className="truncate text-muted-foreground">@{user.data.username}</p>
+
+          <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+            <div className="flex gap-1.5">
+              <dd className="font-semibold text-foreground">
+                {formatCount(user.data.followers_count)}
+              </dd>
+              <dt>người theo dõi</dt>
+            </div>
+            <div className="flex gap-1.5">
+              <dd className="font-semibold text-foreground">
+                {formatCount(user.data.following_count)}
+              </dd>
+              <dt>đang theo dõi</dt>
+            </div>
+          </dl>
 
           {isSelf && (
             <div className="mt-4">

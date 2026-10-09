@@ -36,6 +36,18 @@ export type User = {
   updated_at: string
 }
 
+// Trang cá nhân trả về thêm hai con số mà chỉ nó cần. Chúng không nằm trong
+// User vì kiểu đó còn là tác giả bài viết, tác giả bình luận và kết quả tìm
+// kiếm — những chỗ không hề đếm follow.
+//
+// A profile carries two extra figures only it needs. They are not on User
+// because that type is also a post's author, a comment's author and a search
+// result, none of which count follows.
+export type UserProfile = User & {
+  followers_count: number
+  following_count: number
+}
+
 // A search result: the user, plus whether the person searching already
 // follows them. The flag comes down with the row so each result can draw its
 // follow button without one extra request per row.
