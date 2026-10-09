@@ -66,6 +66,47 @@ export type FriendshipStatus = {
   is_close_friend: boolean
 }
 
+export type Comment = {
+  id: number
+  post_id: number
+  user_id: number
+  content: string
+  created_at: string
+  updated_at: string
+  user: User
+}
+
+// Chi tiết một bài: giống bài trong feed nhưng kèm danh sách bình luận, và
+// không có hai con số đếm vì endpoint chi tiết trả về bình luận thật.
+//
+// One post in detail: the same shape as a feed post but carrying its comments,
+// and without the two counts, because the detail endpoint returns the real
+// comments instead.
+export type Post = {
+  id: number
+  title: string
+  content: string
+  user_id: number
+  tags: string[] | null
+  user: User
+  comments: Comment[] | null
+  created_at: string
+  updated_at: string
+  version: number
+}
+
+export type PostCreate = {
+  title: string
+  content: string
+  tags?: string[]
+}
+
+export type PostUpdate = {
+  title?: string
+  content?: string
+  tags?: string[]
+}
+
 export type FeedPost = {
   id: number
   title: string

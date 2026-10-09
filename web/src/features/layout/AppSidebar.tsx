@@ -1,9 +1,10 @@
-import type { ComponentType } from 'react'
+import { useState, type ComponentType } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { Compass, Heart, House, LogOut, MessageCircle, SquarePlus } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from 'cn'
 import type { User } from '../../api/types'
+import { CreatePostDialog } from '../posts/CreatePostDialog'
 import { UserAvatar } from '../users/UserAvatar'
 
 type NavItem = {
@@ -24,7 +25,6 @@ const items: NavItem[] = [
   { label: 'Khám phá', icon: Compass },
   { label: 'Tin nhắn', icon: MessageCircle },
   { label: 'Thông báo', icon: Heart },
-  { label: 'Tạo', icon: SquarePlus },
 ]
 
 // The label is hidden rather than the whole row on a narrow screen, so the rail
@@ -47,6 +47,8 @@ export function AppSidebar({
   onLogout: () => void
   loggingOut: boolean
 }) {
+  const [composing, setComposing] = useState(false)
+
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-16 flex-col border-r border-border bg-background px-2 py-4 lg:w-60 lg:px-3">
       <Link to="/" className={cn(row, 'mb-4 font-semibold')} aria-label="Social">
@@ -83,7 +85,18 @@ export function AppSidebar({
             </button>
           ),
         )}
+        {/* "Tạo" mở hộp thoại chứ không chuyển trang, nên nó không nằm trong
+            mảng items vốn chỉ mô tả các đích điều hướng.
+
+            "Tạo" opens a dialog instead of navigating, so it is not in the
+            items array, which only describes navigation targets. */}
+        <button type="button" onClick={() => setComposing(true)} className={cn(row, 'hover:bg-muted')}>
+          <SquarePlus className="size-6 shrink-0" />
+          <span className={label}>Tạo</span>
+        </button>
       </nav>
+
+      <CreatePostDialog open={composing} onOpenChange={setComposing} />
 
       <div className="flex flex-col gap-1">
         {/* Avatar của chính mình, dẫn tới trang cá nhân. Chưa tải xong thì giữ

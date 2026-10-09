@@ -4,6 +4,7 @@ import { LoginPage } from './features/auth/LoginPage'
 import { RegisterPage } from './features/auth/RegisterPage'
 import { FeedPage } from './features/feed/FeedPage'
 import { AppLayout } from './features/layout/AppLayout'
+import { PostDetailPage } from './features/posts/PostDetailPage'
 import { ProfilePage } from './features/users/ProfilePage'
 
 export function App() {
@@ -18,6 +19,7 @@ export function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<FeedPage />} />
           <Route path="/users/:userID" element={<ProfilePage />} />
+          <Route path="/posts/:postID" element={<PostDetailPage />} />
         </Route>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />

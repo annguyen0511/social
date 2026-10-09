@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { HttpError, del, get, isUnauthorized, put } from '../../api/client'
 import type { FriendshipStatus, User } from '../../api/types'
+import { PostList } from '../posts/PostList'
 import { EditProfileDialog } from './EditProfileDialog'
 import { FollowButton } from './FollowButton'
 import { UserAvatar } from './UserAvatar'
@@ -204,6 +205,23 @@ export function ProfilePage() {
           )}
         </div>
       </header>
+
+      <section className="mt-6">
+        <h2 className="mb-3 font-semibold">Bài viết</h2>
+        {/* queryKey mang userID để hai trang cá nhân khác nhau không dùng
+            chung cache, nhưng vẫn bắt đầu bằng 'userPosts' để một bài mới
+            đăng làm mới được mọi danh sách bằng một lần invalidate theo tiền
+            tố.
+
+            The queryKey carries the userID so two profiles do not share a
+            cache, while still starting with 'userPosts' so a new post can
+            refresh every list with one prefix invalidation. */}
+        <PostList
+          queryKey={['userPosts', userID]}
+          path={`/v1/users/${userID}/posts`}
+          empty={isSelf ? 'Bạn chưa đăng bài nào.' : 'Người này chưa đăng bài nào.'}
+        />
+      </section>
     </main>
   )
 }
