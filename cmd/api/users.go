@@ -198,6 +198,48 @@ func (app *application) updateProfileHandler(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// listUserPostsHandler godoc
+//
+//	@Summary		List a user's posts
+//	@Description	Posts written by the user in the route, newest first. Ties on created_at are broken by post ID, so pages never overlap.
+//	@Tags			User
+//	@Produce		json
+//	@Param			userID		path		int	true	"User ID"
+//	@Param			page		query		int	false	"Page number, starting at 1"	default(1)	minimum(1)
+//	@Param			page_size	query		int	false	"Items per page"				default(20)	minimum(1)	maximum(100)
+//	@Success		200			{object}	FeedPostViewModelPaginationResponse
+//	@Failure		400			{object}	JSONError
+//	@Failure		401			{object}	JSONError
+//	@Failure		404			{object}	JSONError
+//	@Failure		500			{object}	JSONError
+//	@Router			/users/{userID}/posts [get]
+func (app *application) listUserPostsHandler(w http.ResponseWriter, r *http.Request) {
+	// userContextMiddleware already loaded the user, which is what turns an
+	// unknown id into a 404 instead of an empty list.
+	//
+	// userContextMiddleware đã đọc sẵn user, và chính điều đó biến một id
+	// không tồn tại thành 404 thay vì một danh sách rỗng.
+	author, ok := getUserFromContext(r)
+	if !ok {
+		app.internalServerError(w, r, errors.New("user missing from request context"))
+		return
+	}
+
+	page, err := readPagination(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	posts, total, err := app.store.Post.GetByUser(r.Context(), author.ID, page)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	app.jsonResponse(w, r, http.StatusOK, newPagination(posts, page, total), "posts retrieved successfully")
+}
+
 // minSearchQuery keeps a one-character query from matching almost everyone.
 // Trigram matching needs three characters to use the index well, but two is a
 // reasonable floor for short usernames.

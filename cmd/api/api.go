@@ -150,6 +150,7 @@ func (app *application) mount() *chi.Mux {
 				r.Use(app.userContextMiddleware)
 
 				r.Get("/", app.getUserHandler)
+				r.Get("/posts", app.listUserPostsHandler)
 			})
 			r.Group(func(r chi.Router) {
 				r.Get("/me", app.getCurrentUserHandler)
