@@ -1,4 +1,4 @@
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,54 @@ import { HttpError, get, isUnauthorized } from '../../api/client'
 import type { Post, User } from '../../api/types'
 import { formatDateTime } from '../../lib/format'
 import { UserAvatar } from '../users/UserAvatar'
+import { CommentForm } from './CommentForm'
+import { LikeButton } from './LikeButton'
 import { PostActions } from './PostActions'
+
+/**
+ * Goes back where the reader came from, or home when there is nowhere to go.
+ *
+ * React Router gives the first entry of a session the key "default", so that
+ * is how an arrival by pasted link or a fresh tab is told apart from a click
+ * inside the app. Calling history.back() in the first case would leave the
+ * site entirely.
+ *
+ * Quay lại nơi người dùng vừa rời đi, hoặc về trang chủ khi không có chỗ nào
+ * để quay về.
+ *
+ * React Router đặt key "default" cho mục đầu tiên của một phiên, và đó là cách
+ * phân biệt việc vào bằng link dán hay tab mới với việc bấm từ trong ứng dụng.
+ * Gọi history.back() ở trường hợp đầu sẽ đưa người dùng ra khỏi hẳn trang.
+ */
+function BackButton() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const canGoBack = location.key !== 'default'
+
+  if (!canGoBack) {
+    return (
+      <Button asChild variant="ghost" size="sm" className="-ml-2 mb-4">
+        <Link to="/">
+          <ArrowLeft />
+          Về bảng tin
+        </Link>
+      </Button>
+    )
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="-ml-2 mb-4"
+      onClick={() => navigate(-1)}
+    >
+      <ArrowLeft />
+      Quay lại
+    </Button>
+  )
+}
 
 export function PostDetailPage() {
   const { postID = '' } = useParams()
@@ -38,9 +85,10 @@ export function PostDetailPage() {
 
   if (post.isPending) {
     return (
-      <main className="mx-auto max-w-2xl space-y-3 p-6">
-        <Skeleton className="h-8 w-40" />
-        <Skeleton className="h-6 w-2/3" />
+      <main className="mx-auto max-w-2xl p-6">
+        <BackButton />
+        <Skeleton className="mb-3 h-8 w-40" />
+        <Skeleton className="mb-3 h-6 w-2/3" />
         <Skeleton className="h-24 w-full" />
       </main>
     )
@@ -69,6 +117,8 @@ export function PostDetailPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-6">
+      <BackButton />
+
       <Card>
         <CardContent>
           <div className="mb-4 flex items-start gap-2">
@@ -100,11 +150,17 @@ export function PostDetailPage() {
               ))}
             </ul>
           )}
+
+          <div className="mt-4 -ml-2">
+            <LikeButton postID={data.id} likeCount={data.like_count} isLiked={data.is_liked} />
+          </div>
         </CardContent>
       </Card>
 
       <section className="mt-6">
         <h2 className="mb-3 font-semibold">{comments.length} bình luận</h2>
+
+        <CommentForm postID={data.id} />
 
         {comments.length === 0 ? (
           <p className="text-muted-foreground">Chưa có bình luận nào.</p>

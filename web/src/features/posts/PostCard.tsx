@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom'
+import { MessageCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import type { FeedPost } from '../../api/types'
 import { formatDateTime } from '../../lib/format'
 import { UserAvatar } from '../users/UserAvatar'
+import { LikeButton } from './LikeButton'
 
 /**
  * One post as it appears in a list.
@@ -48,9 +51,21 @@ export function PostCard({ post }: { post: FeedPost }) {
           </ul>
         )}
 
-        <p className="mt-3 text-sm text-muted-foreground">
-          {post.comment_count} bình luận · {post.like_count} thích
-        </p>
+        <div className="mt-3 -ml-2 flex items-center gap-1">
+          <LikeButton postID={post.id} likeCount={post.like_count} isLiked={post.is_liked} />
+
+          {/* Số bình luận dẫn tới trang chi tiết, vì đó là nơi duy nhất đọc và
+              viết được bình luận.
+
+              The comment count leads to the detail page, which is the only
+              place comments can be read and written. */}
+          <Button asChild variant="ghost" size="sm">
+            <Link to={`/posts/${post.id}`}>
+              <MessageCircle />
+              {post.comment_count}
+            </Link>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )

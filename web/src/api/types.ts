@@ -93,6 +93,20 @@ export type Post = {
   created_at: string
   updated_at: string
   version: number
+  like_count: number
+  is_liked: boolean
+}
+
+// Trạng thái thích sau khi bấm, do server trả về. Client không tự cộng trừ:
+// một cái nút tự cộng thêm một sẽ sai ngay khi có người khác cũng vừa thích
+// bài đó.
+//
+// The like state after a press, as the server reports it. The client does not
+// do its own arithmetic: a button that adds one locally is wrong the moment
+// somebody else likes the same post.
+export type LikeState = {
+  like_count: number
+  is_liked: boolean
 }
 
 export type PostCreate = {
@@ -116,7 +130,9 @@ export type FeedPost = {
   user: User
   comment_count: number
   like_count: number
+  is_liked: boolean
   created_at: string
+  updated_at: string
   version: number
 }
 
