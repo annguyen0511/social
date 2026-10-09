@@ -80,16 +80,30 @@ func (s *PostStore) Update(ctx context.Context, post *model.Post) error {
 
 func (s *PostStore) GetById(ctx context.Context, id int64) (*model.Post, error) {
 	var post model.Post
+	// The author is joined in because every caller shows the post to somebody,
+	// and a post without a name and a face to go with it is not something any
+	// screen can render. Leaving User zero-valued pointed the profile link at
+	// /users/0.
+	//
+	// Tác giả được join vào vì mọi nơi gọi đều hiển thị bài cho ai đó xem, mà
+	// một bài viết không có tên và khuôn mặt đi kèm thì không màn hình nào vẽ
+	// ra được. Để User rỗng khiến link tới trang cá nhân trỏ về /users/0.
 	query := `
-	SELECT id, content, title, user_id, tags, created_at, updated_at, version
-	FROM posts
-	WHERE id = $1
+	SELECT p.id, p.content, p.title, p.user_id, p.tags, p.created_at, p.updated_at, p.version,
+	       u.id, u.username, u.first_name, u.last_name, COALESCE(u.avatar_url, '')
+	FROM posts p
+	JOIN users u ON u.id = p.user_id
+	WHERE p.id = $1
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&post.ID, &post.Content, &post.Title, &post.UserID, pq.Array(&post.Tags), &post.CreatedAt, &post.UpdatedAt, &post.Version)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&post.ID, &post.Content, &post.Title, &post.UserID, pq.Array(&post.Tags),
+		&post.CreatedAt, &post.UpdatedAt, &post.Version,
+		&post.User.ID, &post.User.UserName, &post.User.FirstName, &post.User.LastName, &post.User.AvatarURL,
+	)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -140,7 +154,7 @@ func (s *PostStore) GetByUser(ctx context.Context, authorID int64, page Paginati
 	countQuery := `SELECT COUNT(*) FROM posts p WHERE p.user_id = $1`
 	pageQuery := `
 	SELECT
-		p.id, p.user_id, u.username, COALESCE(u.avatar_url, ''), p.title, p.content, p.tags,
+		p.id, p.user_id, u.username, u.first_name, u.last_name, COALESCE(u.avatar_url, ''), p.title, p.content, p.tags,
 		p.created_at, p.updated_at, p.version,
 		(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
 		(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count
@@ -154,7 +168,7 @@ func (s *PostStore) GetByUser(ctx context.Context, authorID int64, page Paginati
 	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{authorID}, func(rows *sql.Rows) (model.FeedPost, error) {
 		var post model.FeedPost
 		err := rows.Scan(
-			&post.ID, &post.UserID, &post.User.UserName, &post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags),
+			&post.ID, &post.UserID, &post.User.UserName, &post.User.FirstName, &post.User.LastName, &post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags),
 			&post.CreatedAt, &post.UpdatedAt, &post.Version,
 			&post.CommentCount, &post.LikeCount,
 		)
@@ -175,7 +189,7 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 	countQuery := `SELECT COUNT(*) FROM posts p WHERE ` + feedFilter
 	pageQuery := `
 	SELECT
-		p.id, p.user_id, u.username, COALESCE(u.avatar_url, ''), p.title, p.content, p.tags,
+		p.id, p.user_id, u.username, u.first_name, u.last_name, COALESCE(u.avatar_url, ''), p.title, p.content, p.tags,
 		p.created_at, p.updated_at, p.version,
 		(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
 		(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count
@@ -189,7 +203,7 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{userID}, func(rows *sql.Rows) (model.FeedPost, error) {
 		var post model.FeedPost
 		err := rows.Scan(
-			&post.ID, &post.UserID, &post.User.UserName, &post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags),
+			&post.ID, &post.UserID, &post.User.UserName, &post.User.FirstName, &post.User.LastName, &post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags),
 			&post.CreatedAt, &post.UpdatedAt, &post.Version,
 			&post.CommentCount, &post.LikeCount,
 		)
