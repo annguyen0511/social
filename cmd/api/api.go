@@ -138,6 +138,7 @@ func (app *application) mount() *chi.Mux {
 				// r.Patch("/",)
 			})
 			r.Group(func(r chi.Router) {
+				r.Get("/me", app.getCurrentUserHandler)
 				r.Get("/feed", app.getFeedHandler)
 				r.Get("/search", app.searchUsersHandler)
 			})

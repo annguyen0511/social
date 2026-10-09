@@ -72,6 +72,22 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getCurrentUserHandler godoc
+//
+//	@Summary		Get the signed-in user
+//	@Description	Returns the account behind the session cookie. A client has no other way to learn its own ID, which it needs to tell its own profile apart from someone else's.
+//	@Tags			User
+//	@Produce		json
+//	@Success		200	{object}	UserViewModelResponse
+//	@Failure		401	{object}	JSONError
+//	@Failure		500	{object}	JSONError
+//	@Router			/users/me [get]
+func (app *application) getCurrentUserHandler(w http.ResponseWriter, r *http.Request) {
+	if err := app.jsonResponse(w, r, http.StatusOK, authUser(r), "current user retrieved successfully"); err != nil {
+		app.internalServerError(w, r, err)
+	}
+}
+
 // minSearchQuery keeps a one-character query from matching almost everyone.
 // Trigram matching needs three characters to use the index well, but two is a
 // reasonable floor for short usernames.
