@@ -46,6 +46,36 @@ func getPostFromContext(r *http.Request) (*model.Post, bool) {
 	return post, ok
 }
 
+// requireOwnPost returns the post in the route, but only to the person who
+// wrote it.
+//
+// Until now update and delete took the post straight from the context, so any
+// signed-in user could edit or delete anyone else's post by knowing its id.
+// The check belongs here rather than in each handler, so a future handler that
+// changes a post cannot forget it.
+//
+// requireOwnPost trả về bài viết trên route, nhưng chỉ cho đúng người đã viết
+// nó.
+//
+// Trước đây update và delete lấy thẳng bài từ context, nên bất kỳ ai đã đăng
+// nhập cũng sửa hoặc xoá được bài của người khác chỉ cần biết id. Phép kiểm
+// đặt ở đây chứ không đặt trong từng handler, để sau này có thêm handler nào
+// sửa bài thì cũng không thể quên.
+func (app *application) requireOwnPost(w http.ResponseWriter, r *http.Request) (*model.Post, bool) {
+	post, ok := getPostFromContext(r)
+	if !ok {
+		app.internalServerError(w, r, errors.New("post missing from request context"))
+		return nil, false
+	}
+
+	if post.UserID != authUser(r).ID {
+		app.forbiddenResponse(w, r, errors.New("you can only change your own posts"))
+		return nil, false
+	}
+
+	return post, true
+}
+
 type createPostRequest struct {
 	Content string   `json:"content" validate:"required,max=1000" example:"Optimistic locking is one extra predicate in the WHERE clause."`
 	Title   string   `json:"title" validate:"required,max=100" example:"Optimistic locking in practice"`
@@ -55,7 +85,7 @@ type createPostRequest struct {
 // createPostHandler godoc
 //
 //	@Summary		Create a post
-//	@Description	Creates a post owned by the current user. Until auth exists the owner is always user 1.
+//	@Description	Creates a post owned by the signed-in user.
 //	@Tags			Post
 //	@Accept			json
 //	@Produce		json
@@ -116,14 +146,14 @@ type updatePostRequest struct {
 //	@Param			payload	body		updatePostRequest	true	"Fields to change"
 //	@Success		200		{object}	PostViewModelResponse
 //	@Failure		400		{object}	JSONError
+//	@Failure		403		{object}	JSONError	"The post belongs to someone else"
 //	@Failure		404		{object}	JSONError
 //	@Failure		409		{object}	JSONError	"The post changed since it was read"
 //	@Failure		500		{object}	JSONError
 //	@Router			/posts/{postID} [patch]
 func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request) {
-	post, ok := getPostFromContext(r)
+	post, ok := app.requireOwnPost(w, r)
 	if !ok {
-		app.badRequestResponse(w, r, errors.New("post not found"))
 		return
 	}
 
@@ -219,13 +249,13 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 //	@Param			postID	path	int	true	"Post ID"
 //	@Success		200		"Post deleted; the response has no body"
 //	@Failure		400		{object}	JSONError
+//	@Failure		403		{object}	JSONError	"The post belongs to someone else"
 //	@Failure		404		{object}	JSONError
 //	@Failure		500		{object}	JSONError
 //	@Router			/posts/{postID} [delete]
 func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request) {
-	post, ok := getPostFromContext(r)
+	post, ok := app.requireOwnPost(w, r)
 	if !ok {
-		app.badRequestResponse(w, r, errors.New("post not found"))
 		return
 	}
 
