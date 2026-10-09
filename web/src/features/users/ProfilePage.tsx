@@ -10,6 +10,7 @@ import { formatCount } from '../../lib/format'
 import { NewPostButton } from '../posts/NewPostButton'
 import { PostList } from '../posts/PostList'
 import { EditProfileDialog } from './EditProfileDialog'
+import { FollowListDialog, type FollowListKind } from './FollowListDialog'
 import { FollowButton } from './FollowButton'
 import { UserAvatar } from './UserAvatar'
 
@@ -80,6 +81,9 @@ export function ProfilePage() {
   const { userID = '' } = useParams()
   const id = Number(userID)
   const [editing, setEditing] = useState(false)
+  // null nghĩa là chưa mở danh sách nào.
+  // null means no list is open.
+  const [peopleList, setPeopleList] = useState<FollowListKind | null>(null)
 
   const user = useQuery({
     queryKey: ['users', userID],
@@ -157,20 +161,47 @@ export function ProfilePage() {
           </h1>
           <p className="truncate text-muted-foreground">@{user.data.username}</p>
 
-          <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+          <dl className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
+            {/* Số bài không bấm được vì danh sách bài vốn đã nằm ngay bên
+                dưới; hai con số kia mới cần một chỗ để mở ra.
+
+                The post count is not a button because the posts are already
+                listed right below; the other two are what need somewhere to
+                open. */}
             <div className="flex gap-1.5">
               <dd className="font-semibold text-foreground">
-                {formatCount(user.data.followers_count)}
+                {formatCount(user.data.posts_count)}
               </dd>
-              <dt>người theo dõi</dt>
+              <dt>bài viết</dt>
             </div>
-            <div className="flex gap-1.5">
-              <dd className="font-semibold text-foreground">
-                {formatCount(user.data.following_count)}
-              </dd>
-              <dt>đang theo dõi</dt>
-            </div>
+
+            {(
+              [
+                ['followers', 'người theo dõi', user.data.followers_count],
+                ['following', 'đang theo dõi', user.data.following_count],
+              ] as const
+            ).map(([kind, text, count]) => (
+              <div key={kind} className="flex">
+                <button
+                  type="button"
+                  onClick={() => setPeopleList(kind)}
+                  className="flex gap-1.5 rounded-sm hover:underline"
+                >
+                  <dd className="font-semibold text-foreground">{formatCount(count)}</dd>
+                  <dt>{text}</dt>
+                </button>
+              </div>
+            ))}
           </dl>
+
+          {peopleList && (
+            <FollowListDialog
+              userID={userID}
+              kind={peopleList}
+              open
+              onOpenChange={(next) => !next && setPeopleList(null)}
+            />
+          )}
 
           {isSelf && (
             <div className="mt-4">

@@ -44,18 +44,19 @@ export type User = {
 // because that type is also a post's author, a comment's author and a search
 // result, none of which count follows.
 export type UserProfile = User & {
+  posts_count: number
   followers_count: number
   following_count: number
 }
 
-// A search result: the user, plus whether the person searching already
-// follows them. The flag comes down with the row so each result can draw its
-// follow button without one extra request per row.
+// Một người trong một danh sách người: thông tin user, kèm việc người đang
+// đọc đã theo dõi họ chưa. Dùng chung cho kết quả tìm kiếm, danh sách người
+// theo dõi và danh sách đang theo dõi — cả ba đúng là hình dạng này.
 //
-// Một dòng kết quả tìm kiếm: thông tin user, kèm việc người tìm đã theo dõi
-// họ chưa. Cờ này về cùng dòng dữ liệu nên mỗi kết quả vẽ được nút theo dõi
-// mà không cần thêm một request cho từng dòng.
-export type SearchedUser = User & {
+// One person in a list of people: the user, plus whether the reader already
+// follows them. Shared by search results, a follower list and a following
+// list, because all three are exactly this shape.
+export type UserSummary = User & {
   is_following: boolean
 }
 

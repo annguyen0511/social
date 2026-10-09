@@ -45,6 +45,13 @@ export function FollowButton({ userID, isFollowing, className }: Props) {
       // màn hình một con số mâu thuẫn với chính cái nút bên cạnh nó.
       queryClient.invalidateQueries({ queryKey: ['users'] })
       queryClient.invalidateQueries({ queryKey: ['friendship', userID] })
+      // Each row of a follower or following list carries is_following too, and
+      // this button is often pressed from inside one of those lists.
+      //
+      // Mỗi dòng trong danh sách người theo dõi hay đang theo dõi cũng mang
+      // theo is_following, mà nút này thường được bấm từ ngay trong một trong
+      // hai danh sách đó.
+      queryClient.invalidateQueries({ queryKey: ['people'] })
     },
   })
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Command, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { get } from '../../api/client'
-import type { Pagination, SearchedUser } from '../../api/types'
+import type { Pagination, UserSummary } from '../../api/types'
 import { useDebounced } from '../../hooks/useDebounced'
 import { FollowButton } from './FollowButton'
 import { UserAvatar } from './UserAvatar'
@@ -54,7 +54,7 @@ export function UserSearch() {
   const query = useQuery({
     queryKey: ['users', 'search', debounced],
     queryFn: ({ signal }) =>
-      get<Pagination<SearchedUser>>(
+      get<Pagination<UserSummary>>(
         // encodeURIComponent, because a name can hold a space or an ampersand
         // and either one would otherwise cut the query string short.
         //
