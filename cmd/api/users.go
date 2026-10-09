@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -93,7 +92,6 @@ type updateProfileRequest struct {
 	FirstName *string `json:"first_name" example:"An"`
 	LastName  *string `json:"last_name" example:"Nguyen"`
 	UserName  *string `json:"username" example:"an.nguyen"`
-	AvatarURL *string `json:"avatar_url" example:"https://example.com/a.jpg"`
 } //@name UserUpdateModel
 
 // validateProfile checks the user after the request has been applied to it,
@@ -108,6 +106,9 @@ type updateProfileRequest struct {
 // while len() on a Go string counts bytes, so a Vietnamese name would be
 // rejected at roughly a third of the length actually allowed.
 //
+// The avatar is not checked here: it is never set from a request body, only by
+// the upload endpoint, which writes a path this server chose itself.
+//
 // validateProfile kiểm tra user sau khi request đã được áp vào, chứ không
 // kiểm bản thân request.
 //
@@ -119,6 +120,9 @@ type updateProfileRequest struct {
 // Độ dài đếm theo rune chứ không phải byte. Postgres đếm ký tự trong
 // varchar(255), còn len() của Go đếm byte, nên một cái tên tiếng Việt sẽ bị
 // chặn ở khoảng một phần ba độ dài thực sự được phép.
+//
+// Avatar không được kiểm ở đây: nó không bao giờ đặt từ body của request mà
+// chỉ do endpoint tải lên ghi, với đường dẫn do chính server này chọn.
 func validateProfile(user *model.User) error {
 	for _, field := range []struct{ name, value string }{
 		{"first_name", user.FirstName},
@@ -130,34 +134,19 @@ func validateProfile(user *model.User) error {
 		}
 	}
 
-	// An empty avatar_url is how the picture is removed, so only a non-empty
-	// value has to look like a URL.
-	//
-	// avatar_url rỗng chính là cách xoá ảnh, nên chỉ giá trị khác rỗng mới cần
-	// trông giống một URL.
-	if user.AvatarURL == "" {
-		return nil
-	}
-	if len([]rune(user.AvatarURL)) > 255 {
-		return errors.New("avatar_url must be at most 255 characters")
-	}
-	parsed, err := url.Parse(user.AvatarURL)
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-		return errors.New("avatar_url must be an http or https URL")
-	}
 	return nil
 }
 
 // updateProfileHandler godoc
 //
 //	@Summary		Update my profile
-//	@Description	Changes the signed-in user's own profile. Every field is optional: one left out of the body keeps its current value. Sending avatar_url as an empty string removes the picture. Email cannot be changed here because it is the login identifier.
+//	@Description	Changes the signed-in user's own profile. Every field is optional: one left out of the body keeps its current value. The avatar has its own endpoints because it is a file, and the email cannot be changed here because it is the login identifier.
 //	@Tags			User
 //	@Accept			json
 //	@Produce		json
 //	@Param			payload	body		updateProfileRequest	true	"Fields to change"
 //	@Success		200		{object}	UserViewModelResponse
-//	@Failure		400		{object}	JSONError	"A name is outside 2-100 characters, or avatar_url is not an http(s) URL"
+//	@Failure		400		{object}	JSONError	"A name is outside 2-100 characters"
 //	@Failure		401		{object}	JSONError
 //	@Failure		404		{object}	JSONError	"The account no longer exists"
 //	@Failure		409		{object}	JSONError	"The username is taken"
@@ -185,9 +174,6 @@ func (app *application) updateProfileHandler(w http.ResponseWriter, r *http.Requ
 	}
 	if req.UserName != nil {
 		user.UserName = strings.TrimSpace(*req.UserName)
-	}
-	if req.AvatarURL != nil {
-		user.AvatarURL = strings.TrimSpace(*req.AvatarURL)
 	}
 
 	if err := validateProfile(&user); err != nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/annguyen0511/social/internal/env"
 	"github.com/annguyen0511/social/internal/mailer"
 	"github.com/annguyen0511/social/internal/store"
+	"github.com/annguyen0511/social/internal/upload"
 	"go.uber.org/zap"
 )
 
@@ -41,6 +42,7 @@ func main() {
 			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
 		},
 		env:         env.GetString("ENV", "development"),
+		uploadDir:   env.GetString("UPLOAD_DIR", "./uploads"),
 		corsOrigins: strings.Split(env.GetString("CORS_ALLOWED_ORIGINS", "http://localhost:5173"), ","),
 		auth: authConfig{
 			secret: env.GetString("JWT_SECRET", ""),
@@ -113,6 +115,12 @@ func main() {
 		logger.Warnw("SENDGRID_API_KEY not set, activation links will only be logged")
 	}
 
+	// avatar storage
+	avatars, err := upload.NewStore(cfg.uploadDir)
+	if err != nil {
+		logger.Panicw("failed to prepare upload directory", "dir", cfg.uploadDir, "error", err)
+	}
+
 	logger.Infoln("database connection pool establised")
 	store := store.NewStorage(db)
 
@@ -122,6 +130,7 @@ func main() {
 		logger:        logger,
 		mailer:        mailClient,
 		authenticator: authenticator,
+		avatars:       avatars,
 	}
 
 	mux := app.mount()

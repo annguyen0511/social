@@ -9,6 +9,7 @@ import (
 	"github.com/annguyen0511/social/internal/auth"
 	"github.com/annguyen0511/social/internal/mailer"
 	"github.com/annguyen0511/social/internal/store"
+	"github.com/annguyen0511/social/internal/upload"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -22,6 +23,7 @@ type application struct {
 	logger        *zap.SugaredLogger
 	mailer        mailer.Client
 	authenticator auth.Authenticator
+	avatars       *upload.Store
 }
 
 type config struct {
@@ -39,6 +41,12 @@ type config struct {
 	// chạy ở cổng khác, nên thiếu phần này thì mọi request từ nó bị chặn
 	// trước cả khi handler chạy.
 	corsOrigins []string
+	// uploadDir is where avatar files are written. It sits outside the
+	// repository tree by default, so a stray upload never ends up in a commit.
+	//
+	// uploadDir là nơi ghi các file avatar. Mặc định nó nằm ngoài cây mã nguồn,
+	// để một file tải lên không bao giờ lọt vào commit.
+	uploadDir string
 }
 
 type authConfig struct {
@@ -109,6 +117,13 @@ func (app *application) mount() *chi.Mux {
 		// /v1/swagger/doc.json on whatever host and port serves the page.
 		r.Get("/swagger/*", httpSwagger.Handler(httpSwagger.URL("doc.json")))
 
+		// Outside requireAuth so an <img> loads on its own. See
+		// serveAvatarHandler.
+		//
+		// Nằm ngoài requireAuth để một thẻ <img> tự tải được. Xem
+		// serveAvatarHandler.
+		r.Get("/uploads/avatars/{name}", app.serveAvatarHandler)
+
 		r.Route("/authentication", func(r chi.Router) {
 			r.Post("/register", app.registerHandler)
 			r.Put("/activate/{token}", app.activateUserHandler)
@@ -139,6 +154,8 @@ func (app *application) mount() *chi.Mux {
 			r.Group(func(r chi.Router) {
 				r.Get("/me", app.getCurrentUserHandler)
 				r.Patch("/me", app.updateProfileHandler)
+				r.Post("/me/avatar", app.uploadAvatarHandler)
+				r.Delete("/me/avatar", app.deleteAvatarHandler)
 				r.Get("/feed", app.getFeedHandler)
 				r.Get("/search", app.searchUsersHandler)
 			})
