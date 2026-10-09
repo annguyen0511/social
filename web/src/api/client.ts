@@ -53,7 +53,16 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     // khi gọi khác origin và mọi route cần đăng nhập đều trả 401.
     credentials: 'include',
     headers: {
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      // Chỉ gắn khi thân request là chuỗi, tức là JSON do post/put/patch tạo
+      // ra. Với FormData thì phải để trình duyệt tự đặt, vì nó còn phải kèm
+      // tham số boundary mà chỉ nó mới biết — ghi đè bằng tay sẽ khiến server
+      // không tách nổi các phần của form.
+      //
+      // Only when the body is a string, which is the JSON that post/put/patch
+      // produce. For FormData the browser must set it, because the header also
+      // carries a boundary parameter only it knows — overriding it by hand
+      // leaves the server unable to split the form apart.
+      ...(typeof init.body === 'string' ? { 'Content-Type': 'application/json' } : {}),
       ...init.headers,
     },
   })
@@ -98,3 +107,26 @@ export const put = <T>(path: string, data?: unknown) =>
 export const patch = <T>(path: string, data?: unknown) =>
   api<T>(path, { method: 'PATCH', body: data === undefined ? undefined : JSON.stringify(data) })
 export const del = <T>(path: string) => api<T>(path, { method: 'DELETE' })
+
+/** Uploads a file. See the Content-Type note in api(). */
+/** Tải một file lên. Xem ghi chú về Content-Type trong api(). */
+export const postForm = <T>(path: string, form: FormData) =>
+  api<T>(path, { method: 'POST', body: form })
+
+/**
+ * Resolves a path the API handed back, such as an avatar, against wherever the
+ * API lives. In development that is the empty string, because Vite proxies /v1
+ * and the path is already same-origin.
+ *
+ * Anything that is already absolute is left alone: a blob: URL from a local
+ * file preview, or an http(s) address from the seed data.
+ *
+ * Chuyển một đường dẫn do API trả về, ví dụ avatar, thành địa chỉ đầy đủ theo
+ * nơi API đang chạy. Lúc dev thì đó là chuỗi rỗng, vì Vite proxy /v1 nên đường
+ * dẫn vốn đã cùng origin.
+ *
+ * Thứ gì đã là địa chỉ tuyệt đối thì giữ nguyên: một blob: URL khi xem trước
+ * ảnh từ máy, hay một địa chỉ http(s) trong dữ liệu mẫu.
+ */
+export const assetUrl = (value: string): string =>
+  value.startsWith('/') ? `${BASE}${value}` : value

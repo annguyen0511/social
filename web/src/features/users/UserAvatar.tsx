@@ -1,4 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { assetUrl } from '../../api/client'
 import type { User } from '../../api/types'
 
 /**
@@ -25,7 +26,7 @@ export function UserAvatar({ user, className }: { user: User; className?: string
 
           An empty src becomes undefined so Radix treats it as "no image"
           straight away, instead of trying to load an empty string first. */}
-      <AvatarImage src={user.avatar_url || undefined} alt="" />
+      <AvatarImage src={user.avatar_url ? assetUrl(user.avatar_url) : undefined} alt="" />
       <AvatarFallback>{initials || '?'}</AvatarFallback>
     </Avatar>
   )
