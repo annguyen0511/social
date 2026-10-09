@@ -47,13 +47,34 @@ func getUserFromContext(r *http.Request) (*model.User, bool) {
 	return user, ok
 }
 
+// userProfile is a user as their own page shows them: the account, plus the
+// two figures that only a profile needs.
+//
+// The counts are not on model.User because that type is also a post's author,
+// a comment's author and a search result. Filling them everywhere would mean
+// counting follows for every row of every list; leaving them at zero would
+// put a wrong number on screen wherever someone forgot.
+//
+// userProfile là một user theo cách trang cá nhân của họ hiển thị: thông tin
+// tài khoản, cộng hai con số mà chỉ trang cá nhân mới cần.
+//
+// Hai con số đó không nằm trong model.User vì kiểu đó còn là tác giả bài
+// viết, tác giả bình luận và kết quả tìm kiếm. Điền chúng ở mọi nơi nghĩa là
+// phải đếm follow cho từng dòng của từng danh sách; để nguyên bằng 0 thì chỗ
+// nào có người quên sẽ hiện ra một con số sai.
+type userProfile struct {
+	model.User
+	FollowersCount int64 `json:"followers_count" example:"128"`
+	FollowingCount int64 `json:"following_count" example:"87"`
+} //@name UserProfileViewModel
+
 // getUserHandler godoc
 //
 //	@Summary	Get a user
 //	@Tags		User
 //	@Produce	json
 //	@Param		userID	path		int	true	"User ID"
-//	@Success	200		{object}	UserViewModelResponse
+//	@Success	200		{object}	UserProfileViewModelResponse
 //	@Failure	400		{object}	JSONError
 //	@Failure	404		{object}	JSONError
 //	@Failure	500		{object}	JSONError
@@ -65,8 +86,15 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := app.jsonResponse(w, r, http.StatusOK, user, "user retrieved successfully")
+	followers, following, err := app.store.Follow.Counts(r.Context(), user.ID)
 	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	profile := userProfile{User: *user, FollowersCount: followers, FollowingCount: following}
+
+	if err := app.jsonResponse(w, r, http.StatusOK, profile, "user retrieved successfully"); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}

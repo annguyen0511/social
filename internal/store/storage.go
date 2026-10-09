@@ -51,6 +51,7 @@ type Storage struct {
 		GetFollowers(context.Context, int64, PaginationQuery) ([]model.Follow, int64, error)
 		GetFollowing(context.Context, int64, PaginationQuery) ([]model.Follow, int64, error)
 		IsFollowing(context.Context, int64, int64) (bool, error)
+		Counts(ctx context.Context, userID int64) (followers int64, following int64, err error)
 	}
 	Block interface {
 		Block(ctx context.Context, blockerId int64, blockedId int64) error

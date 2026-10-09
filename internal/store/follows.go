@@ -57,6 +57,36 @@ func (s *FollowStore) Unfollow(ctx context.Context, followerId int64, followingI
 	return nil
 }
 
+// Counts returns how many people follow userID and how many userID follows.
+//
+// The follows table stores one direction per row, so the two numbers are the
+// same table read from opposite ends: a row is a follower of userID when
+// following_id is theirs, and someone they follow when follower_id is.
+// Getting that backwards swaps the two figures on every profile, which is the
+// kind of mistake nothing crashes on.
+//
+// Counts trả về có bao nhiêu người theo dõi userID và userID đang theo dõi bao
+// nhiêu người.
+//
+// Bảng follows lưu mỗi dòng một chiều, nên hai con số là cùng một bảng đọc từ
+// hai đầu ngược nhau: một dòng là người theo dõi userID khi following_id là
+// của họ, và là người mà họ theo dõi khi follower_id là của họ. Nhầm chiều sẽ
+// đảo hai con số trên mọi trang cá nhân, kiểu lỗi mà không có gì vỡ ra cả.
+func (s *FollowStore) Counts(ctx context.Context, userID int64) (int64, int64, error) {
+	query := `
+	SELECT
+		(SELECT COUNT(*) FROM follows WHERE following_id = $1) AS followers,
+		(SELECT COUNT(*) FROM follows WHERE follower_id = $1) AS following
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	var followers, following int64
+	err := s.db.QueryRowContext(ctx, query, userID).Scan(&followers, &following)
+	return followers, following, err
+}
+
 func (s *FollowStore) GetFollowers(ctx context.Context, followingId int64, page PaginationQuery) ([]model.Follow, int64, error) {
 	countQuery := `SELECT COUNT(*) FROM follows WHERE following_id = $1`
 	pageQuery := `
