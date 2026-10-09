@@ -13,7 +13,7 @@ ENV_SH = set -a; [ -f .envrc ] && . ./.envrc || true; set +a;
 
 MIGRATIONS_DIR = cmd/migrate/migrations
 
-.PHONY: migrate-create migrate-up migrate-down migrate-status run build seed seed-reset gen-docs
+.PHONY: migrate-create migrate-up migrate-down migrate-status run build dev web seed seed-reset gen-docs
 
 # Số lượng bản ghi seed, ghi đè được: make seed USERS=10 POSTS=20 COMMENTS=50
 USERS ?= 100
@@ -43,6 +43,33 @@ seed:
 # Xoá sạch users/posts/comments rồi seed lại từ đầu
 seed-reset:
 	@$(ENV_SH) go run ./cmd/migrate/seed -reset -users=$(USERS) -posts=$(POSTS) -comments=$(COMMENTS)
+
+# node và pnpm do nvm nạp trong ~/.zshrc, mà recipe của make chạy bằng /bin/sh
+# nên không đọc file đó. Tự dò đường dẫn, ưu tiên thứ đã có sẵn trên PATH.
+#
+# node and pnpm are loaded by nvm from ~/.zshrc, which make's /bin/sh recipes
+# never read. Resolve them here, preferring whatever is already on PATH.
+NODE_BIN ?= $(shell ls -d $(HOME)/.nvm/versions/node/*/bin 2>/dev/null | tail -1)
+PNPM ?= $(shell command -v pnpm 2>/dev/null || echo $(HOME)/.local/share/pnpm/bin/pnpm)
+
+# Chạy API và frontend cùng lúc, mỗi dòng log có tiền tố để biết của bên nào.
+# Ctrl-C dừng cả hai: trap gửi tín hiệu cho cả nhóm tiến trình.
+#
+# Run the API and the frontend together, each log line prefixed with its side.
+# Ctrl-C stops both: the trap signals the whole process group.
+dev:
+	@$(ENV_SH) for p in "$${ADDR:-:8080}" :5173; do \
+		if ss -ltn 2>/dev/null | grep -q "$$p "; then \
+			echo "Cổng $$p đang bận. Tiến trình cũ còn sống?  ss -ltnp | grep $$p"; exit 1; \
+		fi; done
+	@trap 'kill 0' INT TERM; \
+	$(ENV_SH) air 2>&1 | sed -u 's/^/[api] /' & \
+	($(ENV_SH) cd web && PATH="$(NODE_BIN):$$PATH" $(PNPM) dev 2>&1 | sed -u 's/^/[web] /') & \
+	wait
+
+# Chỉ chạy frontend / frontend only
+web:
+	@$(ENV_SH) cd web && PATH="$(NODE_BIN):$$PATH" $(PNPM) dev
 
 # Chạy app. Build rồi exec thay vì `go run`: `go run` sinh một binary tạm làm
 # tiến trình con, và khi `go run` bị giết thì binary con thường sống sót, giữ
