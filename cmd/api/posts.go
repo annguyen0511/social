@@ -248,6 +248,13 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	post.LikeCount = likeCount
 	post.IsLiked = isLiked
 
+	isSaved, err := app.store.Save.IsSaved(r.Context(), post.ID, authUser(r).ID)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+	post.IsSaved = isSaved
+
 	err = app.jsonResponse(w, r, http.StatusOK, post, "Success")
 	if err != nil {
 		app.internalServerError(w, r, err)

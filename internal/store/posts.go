@@ -200,7 +200,8 @@ func feedPostColumns(viewer string) string {
 	p.title, p.content, p.tags, p.created_at, p.updated_at, p.version,
 	(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
 	(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
-	EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ` + viewer + `) AS is_liked
+	EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ` + viewer + `) AS is_liked,
+	EXISTS (SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = ` + viewer + `) AS is_saved
 	`
 }
 
@@ -212,7 +213,7 @@ func scanFeedPost(rows *sql.Rows) (model.FeedPost, error) {
 		&post.ID, &post.UserID, &post.User.UserName, &post.User.FirstName, &post.User.LastName,
 		&post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags),
 		&post.CreatedAt, &post.UpdatedAt, &post.Version,
-		&post.CommentCount, &post.LikeCount, &post.IsLiked,
+		&post.CommentCount, &post.LikeCount, &post.IsLiked, &post.IsSaved,
 	)
 	post.User.ID = post.UserID
 	return post, err
@@ -238,4 +239,30 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 	`
 
 	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{userID}, scanFeedPost)
+}
+
+// GetSaved returns the posts viewerID has saved, most recently saved first.
+//
+// The order comes from saved_posts.created_at, not the post's: a saved list
+// is a reading list, so it belongs in the order things were put on it, not
+// the order they were written.
+//
+// GetSaved trả về những bài viewerID đã lưu, lưu gần đây nhất trước.
+//
+// Thứ tự lấy theo saved_posts.created_at chứ không phải của bài viết: danh
+// sách đã lưu là một danh sách để đọc lại, nên nó phải theo thứ tự được cất
+// vào, không phải thứ tự được viết ra.
+func (s *PostStore) GetSaved(ctx context.Context, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
+	countQuery := `SELECT COUNT(*) FROM saved_posts WHERE user_id = $1`
+	pageQuery := `
+	SELECT ` + feedPostColumns("$1") + `
+	FROM saved_posts s
+	JOIN posts p ON p.id = s.post_id
+	JOIN users u ON u.id = p.user_id
+	WHERE s.user_id = $1
+	ORDER BY s.created_at DESC, p.id DESC
+	LIMIT $2 OFFSET $3
+	`
+
+	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{viewerID}, scanFeedPost)
 }

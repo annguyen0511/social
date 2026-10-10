@@ -28,6 +28,15 @@ type Post struct {
 	// IsLiked nói về người đang hỏi chứ không phải về bài viết, nên cùng một
 	// dòng dữ liệu trả lời khác nhau với hai người đọc khác nhau.
 	IsLiked bool `json:"is_liked"`
+
+	// IsSaved is also about the person asking. It has no count beside it on
+	// purpose: a save is private, so how many people saved a post is nobody's
+	// business but theirs.
+	//
+	// IsSaved cũng nói về người đang hỏi. Nó cố tình không có số đếm đi kèm:
+	// việc lưu bài là riêng tư, nên có bao nhiêu người đã lưu một bài là
+	// chuyện của riêng họ.
+	IsSaved bool `json:"is_saved"`
 } //@name PostViewModel
 
 type FeedPost struct {
