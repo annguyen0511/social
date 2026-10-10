@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
 import { SettingsDialog } from './SettingsDialog'
 
-export type SettingsSection = 'profile' | 'theme' | 'blocked'
+export type SettingsSection = 'profile' | 'theme' | 'closeFriends' | 'blocked'
 
 type OpenSettings = (section?: SettingsSection) => void
 

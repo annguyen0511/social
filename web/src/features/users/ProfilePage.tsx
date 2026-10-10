@@ -61,6 +61,12 @@ function RelationButton({
       queryClient.invalidateQueries({ queryKey: ['friendship', userID] })
       queryClient.invalidateQueries({ queryKey: ['feed'] })
       queryClient.invalidateQueries({ queryKey: ['users'] })
+      // Thêm hay bỏ bạn thân ở đây làm danh sách trong Cài đặt cũ đi, và
+      // chặn thì xoá luôn người đó khỏi danh sách ấy.
+      //
+      // Adding or removing a close friend here leaves the list in Settings
+      // stale, and blocking takes that person off it entirely.
+      queryClient.invalidateQueries({ queryKey: ['closeFriends'] })
     },
   })
 

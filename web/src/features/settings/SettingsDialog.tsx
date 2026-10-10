@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { Ban, SunMoon, UserRound } from 'lucide-react'
+import { Ban, Star, SunMoon, UserRound } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from 'cn'
 import { BlockedSettings } from './BlockedSettings'
+import { CloseFriendsSettings } from './CloseFriendsSettings'
 import { ProfileSettings } from './ProfileSettings'
 import type { SettingsSection } from './SettingsProvider'
 import { ThemeSettings } from './ThemeSettings'
@@ -21,6 +22,7 @@ const sections: {
 }[] = [
   { id: 'profile', label: 'Trang cá nhân', icon: UserRound, Panel: ProfileSettings },
   { id: 'theme', label: 'Giao diện', icon: SunMoon, Panel: ThemeSettings },
+  { id: 'closeFriends', label: 'Bạn thân', icon: Star, Panel: CloseFriendsSettings },
   { id: 'blocked', label: 'Đã chặn', icon: Ban, Panel: BlockedSettings },
 ]
 
