@@ -244,6 +244,36 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{userID}, scanFeedPost)
 }
 
+// notBlockedByViewer drops rows whose author has a block with the reader, in
+// either direction.
+//
+// The route-level gate cannot do this job: a saved list and a repost list
+// hold posts by many different authors, so there is no single person to check
+// before the query runs. The filter has to live inside it.
+//
+// A feed needs no such clause, because blocking already removes the follows
+// in both directions and a feed only holds posts by people you follow.
+//
+// notBlockedByViewer loại các dòng mà tác giả của nó đang có lệnh chặn với
+// người đọc, ở bất kỳ chiều nào.
+//
+// Cổng chặn ở tầng route không làm được việc này: danh sách đã lưu và danh
+// sách đã repost chứa bài của nhiều tác giả khác nhau, nên không có một người
+// duy nhất nào để kiểm trước khi chạy truy vấn. Bộ lọc buộc phải nằm bên
+// trong nó.
+//
+// Feed thì không cần mệnh đề này, vì việc chặn vốn đã gỡ follow cả hai chiều
+// mà feed chỉ chứa bài của những người bạn đang theo dõi.
+func notBlockedByViewer(viewer string) string {
+	return `
+	AND NOT EXISTS (
+		SELECT 1 FROM blocks b
+		WHERE (b.blocker_id = ` + viewer + ` AND b.blocked_id = p.user_id)
+		   OR (b.blocker_id = p.user_id AND b.blocked_id = ` + viewer + `)
+	)
+	`
+}
+
 // GetReposted returns the posts authorID has reposted, most recently first.
 //
 // Unlike a saved list this one is public, so it takes two ids: whose reposts
@@ -256,18 +286,25 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 // kê repost của ai, và ai đang xem — cái thứ hai mới là thứ quyết định các cờ
 // is_liked, is_saved và is_reposted trên từng dòng.
 func (s *PostStore) GetReposted(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
-	countQuery := `SELECT COUNT(*) FROM reposts WHERE user_id = $1`
+	// Both queries carry the filter, or the total would count rows the page
+	// never returns and the last page would come back empty.
+	//
+	// Cả hai truy vấn đều mang bộ lọc, nếu không thì tổng số sẽ đếm cả những
+	// dòng mà trang không bao giờ trả về, và trang cuối sẽ ra rỗng.
+	countQuery := `
+	SELECT COUNT(*) FROM reposts r JOIN posts p ON p.id = r.post_id
+	WHERE r.user_id = $1 ` + notBlockedByViewer("$2")
 	pageQuery := `
 	SELECT ` + feedPostColumns("$2") + `
 	FROM reposts r
 	JOIN posts p ON p.id = r.post_id
 	JOIN users u ON u.id = p.user_id
-	WHERE r.user_id = $1
+	WHERE r.user_id = $1 ` + notBlockedByViewer("$2") + `
 	ORDER BY r.created_at DESC, p.id DESC
 	LIMIT $3 OFFSET $4
 	`
 
-	return paginateWith(ctx, s.db, page, countQuery, []any{authorID}, pageQuery, []any{authorID, viewerID}, scanFeedPost)
+	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{authorID, viewerID}, scanFeedPost)
 }
 
 // GetSaved returns the posts viewerID has saved, most recently saved first.
@@ -282,13 +319,15 @@ func (s *PostStore) GetReposted(ctx context.Context, authorID, viewerID int64, p
 // sách đã lưu là một danh sách để đọc lại, nên nó phải theo thứ tự được cất
 // vào, không phải thứ tự được viết ra.
 func (s *PostStore) GetSaved(ctx context.Context, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
-	countQuery := `SELECT COUNT(*) FROM saved_posts WHERE user_id = $1`
+	countQuery := `
+	SELECT COUNT(*) FROM saved_posts s JOIN posts p ON p.id = s.post_id
+	WHERE s.user_id = $1 ` + notBlockedByViewer("$1")
 	pageQuery := `
 	SELECT ` + feedPostColumns("$1") + `
 	FROM saved_posts s
 	JOIN posts p ON p.id = s.post_id
 	JOIN users u ON u.id = p.user_id
-	WHERE s.user_id = $1
+	WHERE s.user_id = $1 ` + notBlockedByViewer("$1") + `
 	ORDER BY s.created_at DESC, p.id DESC
 	LIMIT $2 OFFSET $3
 	`
