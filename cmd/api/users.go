@@ -93,7 +93,7 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	posts, err := app.store.Post.CountByUser(r.Context(), user.ID)
+	posts, err := app.store.Post.CountByUser(r.Context(), user.ID, authUser(r).ID)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return

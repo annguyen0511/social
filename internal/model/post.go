@@ -1,16 +1,22 @@
 package model
 
 type Post struct {
-	ID        int64     `json:"id" db:"id"`
-	Content   string    `json:"content" db:"content"`
-	Title     string    `json:"title" db:"title"`
-	UserID    int64     `json:"user_id" db:"user_id"`
-	Tags      []string  `json:"tags" db:"tags"`
-	CreatedAt string    `json:"created_at" db:"created_at"`
-	UpdatedAt string    `json:"updated_at" db:"updated_at"`
-	Comments  []Comment `json:"comments"`
-	Version   int       `json:"version" db:"version"`
-	User      User      `json:"user"`
+	ID      int64    `json:"id" db:"id"`
+	Content string   `json:"content" db:"content"`
+	Title   string   `json:"title" db:"title"`
+	UserID  int64    `json:"user_id" db:"user_id"`
+	Tags    []string `json:"tags" db:"tags"`
+	// Visibility is "public" or "private". A private post is readable by its
+	// author and by whoever the author listed as a close friend.
+	//
+	// Visibility là "public" hoặc "private". Bài riêng tư chỉ tác giả và
+	// những người tác giả đã đưa vào danh sách bạn thân mới đọc được.
+	Visibility string    `json:"visibility" db:"visibility" enums:"public,private" example:"public"`
+	CreatedAt  string    `json:"created_at" db:"created_at"`
+	UpdatedAt  string    `json:"updated_at" db:"updated_at"`
+	Comments   []Comment `json:"comments"`
+	Version    int       `json:"version" db:"version"`
+	User       User      `json:"user"`
 
 	// LikeCount and IsLiked live on Post rather than only on FeedPost,
 	// because a post read on its own needs them too. Declaring LikeCount in

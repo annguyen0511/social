@@ -28,7 +28,7 @@ type Storage struct {
 		Delete(context.Context, int64) error
 		GetUserFeed(context.Context, int64, PaginationQuery) ([]model.FeedPost, int64, error)
 		GetByUser(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error)
-		CountByUser(ctx context.Context, authorID int64) (int64, error)
+		CountByUser(ctx context.Context, authorID, viewerID int64) (int64, error)
 		GetSaved(ctx context.Context, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error)
 		GetReposted(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error)
 	}

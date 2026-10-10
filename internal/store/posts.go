@@ -15,8 +15,8 @@ type PostStore struct {
 
 func (s *PostStore) Create(ctx context.Context, post *model.Post) error {
 	query := `
-	INSERT INTO posts (content, title, user_id, tags)
-	VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at
+	INSERT INTO posts (content, title, user_id, tags, visibility)
+	VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at, updated_at
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
@@ -29,6 +29,7 @@ func (s *PostStore) Create(ctx context.Context, post *model.Post) error {
 		post.Title,
 		post.UserID,
 		pq.Array(post.Tags),
+		post.Visibility,
 	).
 		Scan(
 			&post.ID,
@@ -46,8 +47,8 @@ func (s *PostStore) Create(ctx context.Context, post *model.Post) error {
 func (s *PostStore) Update(ctx context.Context, post *model.Post) error {
 	query := `
 	UPDATE posts
-	SET content = $1, title = $2, tags = $3, version = version + 1, updated_at = NOW()
-	WHERE id = $4 AND version = $5 RETURNING version
+	SET content = $1, title = $2, tags = $3, visibility = $4, version = version + 1, updated_at = NOW()
+	WHERE id = $5 AND version = $6 RETURNING version
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
@@ -59,6 +60,7 @@ func (s *PostStore) Update(ctx context.Context, post *model.Post) error {
 		post.Content,
 		post.Title,
 		pq.Array(post.Tags),
+		post.Visibility,
 		post.ID,
 		post.Version,
 	).
@@ -89,7 +91,7 @@ func (s *PostStore) GetById(ctx context.Context, id int64) (*model.Post, error) 
 	// một bài viết không có tên và khuôn mặt đi kèm thì không màn hình nào vẽ
 	// ra được. Để User rỗng khiến link tới trang cá nhân trỏ về /users/0.
 	query := `
-	SELECT p.id, p.content, p.title, p.user_id, p.tags, p.created_at, p.updated_at, p.version,
+	SELECT p.id, p.content, p.title, p.user_id, p.tags, p.visibility, p.created_at, p.updated_at, p.version,
 	       u.id, u.username, u.first_name, u.last_name, COALESCE(u.avatar_url, '')
 	FROM posts p
 	JOIN users u ON u.id = p.user_id
@@ -100,7 +102,7 @@ func (s *PostStore) GetById(ctx context.Context, id int64) (*model.Post, error) 
 	defer cancel()
 
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&post.ID, &post.Content, &post.Title, &post.UserID, pq.Array(&post.Tags),
+		&post.ID, &post.Content, &post.Title, &post.UserID, pq.Array(&post.Tags), &post.Visibility,
 		&post.CreatedAt, &post.UpdatedAt, &post.Version,
 		&post.User.ID, &post.User.UserName, &post.User.FirstName, &post.User.LastName, &post.User.AvatarURL,
 	)
@@ -150,29 +152,44 @@ func (s *PostStore) Delete(ctx context.Context, id int64) error {
 // Nó dùng chung cách đếm bằng truy vấn con với GetUserFeed, vì cùng một lý do
 // khiến bên kia phải dùng: join sang comments và likes sẽ nhân số dòng lên và
 // làm phồng cả hai con số.
-// CountByUser returns how many posts an author has written.
-// CountByUser trả về số bài một tác giả đã viết.
-func (s *PostStore) CountByUser(ctx context.Context, authorID int64) (int64, error) {
+// CountByUser returns how many of an author's posts the viewer may see.
+//
+// It takes the viewer for the same reason the listing does: a count that
+// includes posts the reader cannot open tells them those posts exist.
+//
+// CountByUser trả về số bài của một tác giả mà người xem được phép thấy.
+//
+// Nó nhận người xem vì đúng lý do mà danh sách cũng nhận: một con số bao gồm
+// cả những bài người đọc không mở được chính là đang nói cho họ biết những
+// bài đó tồn tại.
+func (s *PostStore) CountByUser(ctx context.Context, authorID, viewerID int64) (int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
+	query := `SELECT COUNT(*) FROM posts p WHERE p.user_id = $1` + visibleToViewer("$2")
+
 	var total int64
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM posts WHERE user_id = $1`, authorID).Scan(&total)
+	err := s.db.QueryRowContext(ctx, query, authorID, viewerID).Scan(&total)
 	return total, err
 }
 
 func (s *PostStore) GetByUser(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
-	countQuery := `SELECT COUNT(*) FROM posts p WHERE p.user_id = $1`
+	// Both queries take the viewer now, so the two argument lists are the
+	// same again and plain paginate is enough.
+	//
+	// Cả hai truy vấn giờ đều nhận người xem, nên hai bộ tham số lại giống
+	// nhau và paginate thường là đủ.
+	countQuery := `SELECT COUNT(*) FROM posts p WHERE p.user_id = $1` + visibleToViewer("$2")
 	pageQuery := `
 	SELECT ` + feedPostColumns("$2") + `
 	FROM posts p
 	JOIN users u ON u.id = p.user_id
-	WHERE p.user_id = $1
+	WHERE p.user_id = $1` + visibleToViewer("$2") + `
 	ORDER BY p.created_at DESC, p.id DESC
 	LIMIT $3 OFFSET $4
 	`
 
-	return paginateWith(ctx, s.db, page, countQuery, []any{authorID}, pageQuery, []any{authorID, viewerID}, scanFeedPost)
+	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{authorID, viewerID}, scanFeedPost)
 }
 
 // feedPostColumns is the SELECT list every list of posts returns, with viewer
@@ -197,7 +214,7 @@ func (s *PostStore) GetByUser(ctx context.Context, authorID, viewerID int64, pag
 func feedPostColumns(viewer string) string {
 	return `
 	p.id, p.user_id, u.username, u.first_name, u.last_name, COALESCE(u.avatar_url, ''),
-	p.title, p.content, p.tags, p.created_at, p.updated_at, p.version,
+	p.title, p.content, p.tags, p.visibility, p.created_at, p.updated_at, p.version,
 	(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
 	(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
 	EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ` + viewer + `) AS is_liked,
@@ -213,7 +230,7 @@ func scanFeedPost(rows *sql.Rows) (model.FeedPost, error) {
 	var post model.FeedPost
 	err := rows.Scan(
 		&post.ID, &post.UserID, &post.User.UserName, &post.User.FirstName, &post.User.LastName,
-		&post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags),
+		&post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags), &post.Visibility,
 		&post.CreatedAt, &post.UpdatedAt, &post.Version,
 		&post.CommentCount, &post.LikeCount, &post.IsLiked, &post.IsSaved,
 		&post.RepostCount, &post.IsReposted,
@@ -231,17 +248,61 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 	OR p.user_id IN (SELECT following_id FROM follows WHERE follower_id = $1)
 	`
 
-	countQuery := `SELECT COUNT(*) FROM posts p WHERE ` + feedFilter
+	countQuery := `SELECT COUNT(*) FROM posts p WHERE ` + feedFilter + visibleToViewer("$1")
 	pageQuery := `
 	SELECT ` + feedPostColumns("$1") + `
 	FROM posts p
 	JOIN users u ON u.id = p.user_id
-	WHERE ` + feedFilter + `
+	WHERE ` + feedFilter + visibleToViewer("$1") + `
 	ORDER BY p.created_at DESC, p.id DESC
 	LIMIT $2 OFFSET $3
 	`
 
 	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{userID}, scanFeedPost)
+}
+
+// Visibility values a post can carry. They are strings rather than a Go enum
+// because they travel to the database and to the browser unchanged.
+//
+// Các giá trị hiển thị mà một bài viết có thể mang. Chúng là chuỗi chứ không
+// phải enum của Go, vì chúng đi xuống database và lên trình duyệt y nguyên.
+const (
+	VisibilityPublic  = "public"
+	VisibilityPrivate = "private"
+)
+
+// visibleToViewer drops posts the reader is not allowed to see.
+//
+// A private post reaches three kinds of people and nobody else: its author,
+// and whoever the author has put on their close friends list. Note the
+// direction — close_friends.user_id is the person who owns the list, so the
+// author's list is the one that matters, not the reader's.
+//
+// Every query that returns posts needs this, including the ones that only
+// count them: a profile saying "12 bài viết" above a list of 9 is a leak of
+// exactly the three the reader was not meant to know about.
+//
+// visibleToViewer loại những bài mà người đọc không được phép xem.
+//
+// Một bài riêng tư chỉ đến được ba loại người và không ai khác: tác giả của
+// nó, và những ai tác giả đã đưa vào danh sách bạn thân. Chú ý chiều —
+// close_friends.user_id là người sở hữu danh sách, nên danh sách của tác giả
+// mới là thứ có ý nghĩa, không phải của người đọc.
+//
+// Mọi truy vấn trả về bài viết đều cần mệnh đề này, kể cả những truy vấn chỉ
+// đếm: một trang cá nhân ghi "12 bài viết" bên trên một danh sách 9 bài chính
+// là đang tiết lộ đúng ba bài mà người đọc lẽ ra không được biết.
+func visibleToViewer(viewer string) string {
+	return `
+	AND (
+		p.visibility = 'public'
+		OR p.user_id = ` + viewer + `
+		OR EXISTS (
+			SELECT 1 FROM close_friends cf
+			WHERE cf.user_id = p.user_id AND cf.friend_id = ` + viewer + `
+		)
+	)
+	`
 }
 
 // notBlockedByViewer drops rows whose author has a block with the reader, in
@@ -293,13 +354,13 @@ func (s *PostStore) GetReposted(ctx context.Context, authorID, viewerID int64, p
 	// dòng mà trang không bao giờ trả về, và trang cuối sẽ ra rỗng.
 	countQuery := `
 	SELECT COUNT(*) FROM reposts r JOIN posts p ON p.id = r.post_id
-	WHERE r.user_id = $1 ` + notBlockedByViewer("$2")
+	WHERE r.user_id = $1 ` + notBlockedByViewer("$2") + visibleToViewer("$2")
 	pageQuery := `
 	SELECT ` + feedPostColumns("$2") + `
 	FROM reposts r
 	JOIN posts p ON p.id = r.post_id
 	JOIN users u ON u.id = p.user_id
-	WHERE r.user_id = $1 ` + notBlockedByViewer("$2") + `
+	WHERE r.user_id = $1 ` + notBlockedByViewer("$2") + visibleToViewer("$2") + `
 	ORDER BY r.created_at DESC, p.id DESC
 	LIMIT $3 OFFSET $4
 	`
@@ -321,13 +382,13 @@ func (s *PostStore) GetReposted(ctx context.Context, authorID, viewerID int64, p
 func (s *PostStore) GetSaved(ctx context.Context, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
 	countQuery := `
 	SELECT COUNT(*) FROM saved_posts s JOIN posts p ON p.id = s.post_id
-	WHERE s.user_id = $1 ` + notBlockedByViewer("$1")
+	WHERE s.user_id = $1 ` + notBlockedByViewer("$1") + visibleToViewer("$1")
 	pageQuery := `
 	SELECT ` + feedPostColumns("$1") + `
 	FROM saved_posts s
 	JOIN posts p ON p.id = s.post_id
 	JOIN users u ON u.id = p.user_id
-	WHERE s.user_id = $1 ` + notBlockedByViewer("$1") + `
+	WHERE s.user_id = $1 ` + notBlockedByViewer("$1") + visibleToViewer("$1") + `
 	ORDER BY s.created_at DESC, p.id DESC
 	LIMIT $2 OFFSET $3
 	`

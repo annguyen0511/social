@@ -48,6 +48,10 @@ func (app *application) postContextMiddileware(next http.Handler) http.Handler {
 			return
 		}
 
+		if app.hideWhenNotVisible(w, r, post) {
+			return
+		}
+
 		ctx = context.WithValue(ctx, postContextKey, post)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -94,6 +98,12 @@ type createPostRequest struct {
 	Content string   `json:"content" validate:"required,max=1000" example:"Optimistic locking is one extra predicate in the WHERE clause."`
 	Title   string   `json:"title" validate:"required,max=100" example:"Optimistic locking in practice"`
 	Tags    []string `json:"tags" example:"go,postgres"`
+	// Visibility defaults to public when left out, so an older client that
+	// does not know about this field keeps behaving the way it used to.
+	//
+	// Visibility mặc định là public khi không gửi, nên một client cũ chưa
+	// biết tới field này vẫn hoạt động y như trước.
+	Visibility string `json:"visibility" validate:"omitempty,oneof=public private" enums:"public,private" example:"public"`
 } //@name PostCreateModel
 
 // createPostHandler godoc
@@ -121,11 +131,17 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	visibility := req.Visibility
+	if visibility == "" {
+		visibility = store.VisibilityPublic
+	}
+
 	post := model.Post{
-		Content: req.Content,
-		Title:   req.Title,
-		Tags:    req.Tags,
-		UserID:  authUser(r).ID,
+		Content:    req.Content,
+		Title:      req.Title,
+		Tags:       req.Tags,
+		Visibility: visibility,
+		UserID:     authUser(r).ID,
 	}
 
 	ctx := r.Context()
@@ -144,9 +160,10 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 }
 
 type updatePostRequest struct {
-	Title   *string   `json:"title" validate:"omitempty,max=100" example:"An updated title"`
-	Content *string   `json:"content" validate:"omitempty,max=1000" example:"Updated content."`
-	Tags    []*string `json:"tags" validate:"omitempty" example:"go,api"`
+	Title      *string   `json:"title" validate:"omitempty,max=100" example:"An updated title"`
+	Content    *string   `json:"content" validate:"omitempty,max=1000" example:"Updated content."`
+	Tags       []*string `json:"tags" validate:"omitempty" example:"go,api"`
+	Visibility *string   `json:"visibility" validate:"omitempty,oneof=public private" enums:"public,private" example:"private"`
 } //@name PostUpdateModel
 
 // updatePostHandler godoc
@@ -188,6 +205,10 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 
 	if req.Content != nil {
 		post.Content = *req.Content
+	}
+
+	if req.Visibility != nil {
+		post.Visibility = *req.Visibility
 	}
 
 	if req.Tags != nil {
