@@ -1,5 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ConfirmPage } from './features/auth/ConfirmPage'
+import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from './features/auth/ResetPasswordPage'
 import { LoginPage } from './features/auth/LoginPage'
 import { RegisterPage } from './features/auth/RegisterPage'
 import { FeedPage } from './features/feed/FeedPage'
@@ -24,6 +26,9 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         {/* Phải khớp với FRONTEND_URL của API: {FRONTEND_URL}/confirm/{token} */}
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset/:token" element={<ResetPasswordPage />} />
+
         <Route path="/confirm/:token" element={<ConfirmPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -59,6 +59,22 @@ export function LoginPage() {
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
 
+            {/* Ngay dưới ô mật khẩu, không nhét xuống cuối thẻ: người cần
+                nó là người vừa gõ sai mật khẩu, và họ đang nhìn đúng chỗ
+                này.
+
+                Right under the password box rather than tucked at the
+                bottom: whoever needs it has just mistyped a password, and
+                this is where they are already looking. */}
+            <p className="text-right">
+              <Link
+                to="/forgot-password"
+                className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                Quên mật khẩu?
+              </Link>
+            </p>
+
             {errorText && <p className="text-sm text-destructive">{errorText}</p>}
 
             <Button type="submit" size="lg" disabled={mutation.isPending} className="w-full">
