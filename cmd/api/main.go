@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -116,7 +117,19 @@ func main() {
 	}
 
 	// avatar storage
-	avatars, err := upload.NewStore(cfg.uploadDir)
+	// Two directories under the one upload root: avatars are public files
+	// while post pictures are served through an authorised route, and
+	// keeping them apart means a mistake in one cannot expose the other.
+	//
+	// Hai thư mục dưới cùng một gốc tải lên: avatar là file công khai còn ảnh
+	// bài viết được phục vụ qua một route có kiểm quyền, tách riêng ra thì
+	// một sai sót ở bên này không thể làm lộ bên kia.
+	avatars, err := upload.NewStore(filepath.Join(cfg.uploadDir, "avatars"))
+	if err != nil {
+		logger.Panicw("failed to prepare upload directory", "dir", cfg.uploadDir, "error", err)
+	}
+
+	postImages, err := upload.NewStore(filepath.Join(cfg.uploadDir, "posts"))
 	if err != nil {
 		logger.Panicw("failed to prepare upload directory", "dir", cfg.uploadDir, "error", err)
 	}
@@ -131,6 +144,7 @@ func main() {
 		mailer:        mailClient,
 		authenticator: authenticator,
 		avatars:       avatars,
+		postImages:    postImages,
 	}
 
 	mux := app.mount()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/annguyen0511/social/internal/model"
 	"github.com/lib/pq"
@@ -92,19 +93,25 @@ func (s *PostStore) GetById(ctx context.Context, id int64) (*model.Post, error) 
 	// ra được. Để User rỗng khiến link tới trang cá nhân trỏ về /users/0.
 	query := `
 	SELECT p.id, p.content, p.title, p.user_id, p.tags, p.visibility, p.created_at, p.updated_at, p.version,
-	       u.id, u.username, u.first_name, u.last_name, COALESCE(u.avatar_url, '')
+	       u.id, u.username, u.first_name, u.last_name, COALESCE(u.avatar_url, ''),
+	       pi.file_name, pi.width, pi.height
 	FROM posts p
 	JOIN users u ON u.id = p.user_id
+	` + postImageJoin + `
 	WHERE p.id = $1
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
+	var imageName sql.NullString
+	var imageWidth, imageHeight sql.NullInt64
+
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&post.ID, &post.Content, &post.Title, &post.UserID, pq.Array(&post.Tags), &post.Visibility,
 		&post.CreatedAt, &post.UpdatedAt, &post.Version,
 		&post.User.ID, &post.User.UserName, &post.User.FirstName, &post.User.LastName, &post.User.AvatarURL,
+		&imageName, &imageWidth, &imageHeight,
 	)
 	if err != nil {
 		switch {
@@ -114,7 +121,57 @@ func (s *PostStore) GetById(ctx context.Context, id int64) (*model.Post, error) 
 			return nil, err
 		}
 	}
+
+	post.Image = buildPostImage(post.ID, imageName, imageWidth, imageHeight)
 	return &post, nil
+}
+
+// AttachImage records the picture belonging to a post.
+//
+// Kept apart from Create so the handler can write the file first, create the
+// post, and only then link the two — leaving one clear place to undo if the
+// link fails.
+//
+// AttachImage ghi nhận ảnh thuộc về một bài viết.
+//
+// Tách khỏi Create để handler ghi file trước, tạo bài, rồi mới nối hai thứ
+// lại — nhờ vậy có đúng một chỗ rõ ràng để hoàn tác nếu bước nối thất bại.
+func (s *PostStore) AttachImage(ctx context.Context, postID int64, fileName string, width, height int) error {
+	query := `
+	INSERT INTO post_images (post_id, file_name, width, height)
+	VALUES ($1, $2, $3, $4)
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	_, err := s.db.ExecContext(ctx, query, postID, fileName, width, height)
+	return err
+}
+
+// ImageName returns the stored file name of a post's picture, or "" when it
+// has none.
+//
+// Two callers need it and neither can use the URL in the model: the route
+// that serves the bytes has to open the file, and deleting a post has to
+// remove it. ON DELETE CASCADE clears the row but never touches the disk.
+//
+// ImageName trả về tên file ảnh đã lưu của một bài, hoặc "" nếu bài không có
+// ảnh.
+//
+// Hai nơi cần tới nó mà không nơi nào dùng được URL trong model: route phục
+// vụ nội dung phải mở file, còn việc xoá bài thì phải xoá file đi. ON DELETE
+// CASCADE dọn dòng dữ liệu nhưng không bao giờ đụng tới đĩa.
+func (s *PostStore) ImageName(ctx context.Context, postID int64) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	var name string
+	err := s.db.QueryRowContext(ctx, `SELECT file_name FROM post_images WHERE post_id = $1`, postID).Scan(&name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return name, err
 }
 
 func (s *PostStore) Delete(ctx context.Context, id int64) error {
@@ -184,6 +241,7 @@ func (s *PostStore) GetByUser(ctx context.Context, authorID, viewerID int64, pag
 	SELECT ` + feedPostColumns("$2") + `
 	FROM posts p
 	JOIN users u ON u.id = p.user_id
+	` + postImageJoin + `
 	WHERE p.user_id = $1` + visibleToViewer("$2") + `
 	ORDER BY p.created_at DESC, p.id DESC
 	LIMIT $3 OFFSET $4
@@ -220,7 +278,8 @@ func feedPostColumns(viewer string) string {
 	EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ` + viewer + `) AS is_liked,
 	EXISTS (SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = ` + viewer + `) AS is_saved,
 	(SELECT COUNT(*) FROM reposts rp WHERE rp.post_id = p.id) AS repost_count,
-	EXISTS (SELECT 1 FROM reposts rp WHERE rp.post_id = p.id AND rp.user_id = ` + viewer + `) AS is_reposted
+	EXISTS (SELECT 1 FROM reposts rp WHERE rp.post_id = p.id AND rp.user_id = ` + viewer + `) AS is_reposted,
+	pi.file_name, pi.width, pi.height
 	`
 }
 
@@ -228,15 +287,47 @@ func feedPostColumns(viewer string) string {
 // scanFeedPost đọc một dòng của feedPostColumns, theo đúng thứ tự đó.
 func scanFeedPost(rows *sql.Rows) (model.FeedPost, error) {
 	var post model.FeedPost
+	// A post with no picture gives NULL for all three, which only a pointer
+	// or a sql.Null* can hold. Scanning straight into int would fail the row.
+	//
+	// Bài không có ảnh trả về NULL cho cả ba cột, mà chỉ con trỏ hoặc
+	// sql.Null* mới chứa được. Quét thẳng vào int sẽ làm hỏng cả dòng.
+	var imageName sql.NullString
+	var imageWidth, imageHeight sql.NullInt64
+
 	err := rows.Scan(
 		&post.ID, &post.UserID, &post.User.UserName, &post.User.FirstName, &post.User.LastName,
 		&post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags), &post.Visibility,
 		&post.CreatedAt, &post.UpdatedAt, &post.Version,
 		&post.CommentCount, &post.LikeCount, &post.IsLiked, &post.IsSaved,
 		&post.RepostCount, &post.IsReposted,
+		&imageName, &imageWidth, &imageHeight,
 	)
 	post.User.ID = post.UserID
+	post.Image = buildPostImage(post.ID, imageName, imageWidth, imageHeight)
 	return post, err
+}
+
+// buildPostImage turns the three nullable columns into the model's optional
+// image, and nothing when the post has none.
+//
+// The URL is built here rather than stored, so the route can change without
+// a data migration — the database keeps only the file name.
+//
+// buildPostImage biến ba cột nullable thành ảnh tuỳ chọn của model, và không
+// tạo gì khi bài không có ảnh.
+//
+// URL được dựng ở đây chứ không lưu xuống, nên đổi route sau này không cần di
+// trú dữ liệu — database chỉ giữ tên file.
+func buildPostImage(postID int64, name sql.NullString, width, height sql.NullInt64) *model.PostImage {
+	if !name.Valid {
+		return nil
+	}
+	return &model.PostImage{
+		URL:    fmt.Sprintf("/v1/posts/%d/image", postID),
+		Width:  int(width.Int64),
+		Height: int(height.Int64),
+	}
 }
 
 func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
@@ -253,6 +344,7 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 	SELECT ` + feedPostColumns("$1") + `
 	FROM posts p
 	JOIN users u ON u.id = p.user_id
+	` + postImageJoin + `
 	WHERE ` + feedFilter + visibleToViewer("$1") + `
 	ORDER BY p.created_at DESC, p.id DESC
 	LIMIT $2 OFFSET $3
@@ -260,6 +352,29 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 
 	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{userID}, scanFeedPost)
 }
+
+// postImageJoin brings the attached picture along, if there is one.
+//
+// A LEFT JOIN and not an inner one: most posts have no image, and an inner
+// join would silently drop every one of them. It is a constant so the four
+// list queries cannot end up joining differently.
+//
+// There is at most one row per post today — post_images has a UNIQUE on
+// post_id — which is what lets a plain join work here. Allowing several
+// pictures later means dropping that constraint and gathering them with
+// json_agg instead, because the join would then multiply the post rows.
+//
+// postImageJoin kéo theo ảnh đính kèm, nếu có.
+//
+// Dùng LEFT JOIN chứ không phải inner: phần lớn bài không có ảnh, mà inner
+// join sẽ âm thầm loại sạch chúng. Nó là hằng số để bốn truy vấn danh sách
+// không thể join theo những cách khác nhau.
+//
+// Hiện mỗi bài nhiều nhất một dòng — post_images có UNIQUE trên post_id — và
+// chính điều đó khiến một phép join thường là đủ. Sau này cho phép nhiều ảnh
+// thì phải bỏ ràng buộc đó và gom bằng json_agg, vì lúc ấy phép join sẽ nhân
+// số dòng của bài lên.
+const postImageJoin = `LEFT JOIN post_images pi ON pi.post_id = p.id`
 
 // Visibility values a post can carry. They are strings rather than a Go enum
 // because they travel to the database and to the browser unchanged.
@@ -360,6 +475,7 @@ func (s *PostStore) GetReposted(ctx context.Context, authorID, viewerID int64, p
 	FROM reposts r
 	JOIN posts p ON p.id = r.post_id
 	JOIN users u ON u.id = p.user_id
+	` + postImageJoin + `
 	WHERE r.user_id = $1 ` + notBlockedByViewer("$2") + visibleToViewer("$2") + `
 	ORDER BY r.created_at DESC, p.id DESC
 	LIMIT $3 OFFSET $4
@@ -388,6 +504,7 @@ func (s *PostStore) GetSaved(ctx context.Context, viewerID int64, page Paginatio
 	FROM saved_posts s
 	JOIN posts p ON p.id = s.post_id
 	JOIN users u ON u.id = p.user_id
+	` + postImageJoin + `
 	WHERE s.user_id = $1 ` + notBlockedByViewer("$1") + visibleToViewer("$1") + `
 	ORDER BY s.created_at DESC, p.id DESC
 	LIMIT $2 OFFSET $3

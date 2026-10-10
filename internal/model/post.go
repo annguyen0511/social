@@ -59,9 +59,33 @@ type Post struct {
 	// bạn thành tác giả của thứ gì cả.
 	RepostCount int64 `json:"repost_count"`
 	IsReposted  bool  `json:"is_reposted"`
+
+	// Image is nil for a post with no picture. The URL inside it goes through
+	// the API rather than straight to a file, because a private post's
+	// picture has to be as private as the post.
+	//
+	// Image là nil với bài không có ảnh. URL bên trong đi qua API chứ không
+	// trỏ thẳng tới file, vì ảnh của một bài riêng tư phải riêng tư đúng như
+	// chính bài đó.
+	Image *PostImage `json:"image"`
 } //@name PostViewModel
 
 type FeedPost struct {
 	Post
 	CommentCount int64 `json:"comment_count"`
 } //@name FeedPostViewModel
+
+// PostImage is the picture attached to a post.
+//
+// Width and Height travel with it so a browser can reserve the right space
+// before the bytes arrive; without them a feed jumps as each picture lands.
+//
+// PostImage là ảnh đính kèm một bài viết.
+//
+// Width và Height đi kèm để trình duyệt chừa đúng chỗ trước khi dữ liệu ảnh
+// về; thiếu chúng thì feed nhảy giật mỗi lần một tấm ảnh hiện ra.
+type PostImage struct {
+	URL    string `json:"url" example:"/v1/posts/42/image"`
+	Width  int    `json:"width" example:"1080"`
+	Height int    `json:"height" example:"810"`
+} //@name PostImageViewModel
