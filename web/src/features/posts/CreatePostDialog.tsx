@@ -184,14 +184,13 @@ export function CreatePostDialog({
               error={fields.imageError}
               onPick={(file) => {
                 const error = validateImage(file)
-                setFields({ ...fields, image: error ? null : file, imageError: error, crop: null, imageSize: null })
+                setFields({ ...fields, image: error ? null : file, imageError: error, crop: null })
               }}
               onClear={() =>
-                setFields({ ...fields, image: null, imageError: null, crop: null, imageSize: null })
+                setFields({ ...fields, image: null, imageError: null, crop: null })
               }
               onSkip={() => setStep('details')}
               onCrop={(crop) => setFields((current) => ({ ...current, crop }))}
-              onNaturalSize={(imageSize) => setFields((current) => ({ ...current, imageSize }))}
             />
           ) : (
             <div className="flex h-full min-h-0">
@@ -212,7 +211,6 @@ export function CreatePostDialog({
                   <CroppedPreview
                     src={preview}
                     crop={fields.crop}
-                    naturalSize={fields.imageSize}
                     className="max-h-full max-w-full object-contain"
                   />
                 </div>
