@@ -164,12 +164,7 @@ func (s *PostStore) CountByUser(ctx context.Context, authorID int64) (int64, err
 func (s *PostStore) GetByUser(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
 	countQuery := `SELECT COUNT(*) FROM posts p WHERE p.user_id = $1`
 	pageQuery := `
-	SELECT
-		p.id, p.user_id, u.username, u.first_name, u.last_name, COALESCE(u.avatar_url, ''), p.title, p.content, p.tags,
-		p.created_at, p.updated_at, p.version,
-		(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
-		(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
-		EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $2) AS is_liked
+	SELECT ` + feedPostColumns("$2") + `
 	FROM posts p
 	JOIN users u ON u.id = p.user_id
 	WHERE p.user_id = $1
@@ -177,16 +172,50 @@ func (s *PostStore) GetByUser(ctx context.Context, authorID, viewerID int64, pag
 	LIMIT $3 OFFSET $4
 	`
 
-	return paginateWith(ctx, s.db, page, countQuery, []any{authorID}, pageQuery, []any{authorID, viewerID}, func(rows *sql.Rows) (model.FeedPost, error) {
-		var post model.FeedPost
-		err := rows.Scan(
-			&post.ID, &post.UserID, &post.User.UserName, &post.User.FirstName, &post.User.LastName, &post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags),
-			&post.CreatedAt, &post.UpdatedAt, &post.Version,
-			&post.CommentCount, &post.LikeCount, &post.IsLiked,
-		)
-		post.User.ID = post.UserID
-		return post, err
-	})
+	return paginateWith(ctx, s.db, page, countQuery, []any{authorID}, pageQuery, []any{authorID, viewerID}, scanFeedPost)
+}
+
+// feedPostColumns is the SELECT list every list of posts returns, with viewer
+// standing for the placeholder holding the id of whoever is reading.
+//
+// It is one string rather than three copies because the three lists have
+// already drifted apart twice: once when the author's avatar was added and
+// once when their name was, each time leaving the other queries returning
+// blanks that only showed up on screen. A shared list cannot drift, and
+// scanFeedPost below is its matching half — change one and the compiler or
+// the row scan will point at the other.
+//
+// feedPostColumns là danh sách cột SELECT mà mọi danh sách bài viết trả về,
+// với viewer là chỗ dành cho placeholder chứa id của người đang đọc.
+//
+// Nó là một chuỗi duy nhất thay vì ba bản sao, vì ba danh sách đó đã lệch
+// nhau hai lần rồi: một lần khi thêm avatar tác giả và một lần khi thêm họ
+// tên, mỗi lần đều để các truy vấn còn lại trả về giá trị rỗng mà chỉ lòi ra
+// khi nhìn màn hình. Một danh sách dùng chung thì không thể lệch, và
+// scanFeedPost bên dưới là nửa còn lại của nó — sửa bên này thì trình biên
+// dịch hoặc lúc quét dòng sẽ chỉ ngay sang bên kia.
+func feedPostColumns(viewer string) string {
+	return `
+	p.id, p.user_id, u.username, u.first_name, u.last_name, COALESCE(u.avatar_url, ''),
+	p.title, p.content, p.tags, p.created_at, p.updated_at, p.version,
+	(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
+	(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
+	EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ` + viewer + `) AS is_liked
+	`
+}
+
+// scanFeedPost reads one row of feedPostColumns, in the same order.
+// scanFeedPost đọc một dòng của feedPostColumns, theo đúng thứ tự đó.
+func scanFeedPost(rows *sql.Rows) (model.FeedPost, error) {
+	var post model.FeedPost
+	err := rows.Scan(
+		&post.ID, &post.UserID, &post.User.UserName, &post.User.FirstName, &post.User.LastName,
+		&post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags),
+		&post.CreatedAt, &post.UpdatedAt, &post.Version,
+		&post.CommentCount, &post.LikeCount, &post.IsLiked,
+	)
+	post.User.ID = post.UserID
+	return post, err
 }
 
 func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
@@ -200,12 +229,7 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 
 	countQuery := `SELECT COUNT(*) FROM posts p WHERE ` + feedFilter
 	pageQuery := `
-	SELECT
-		p.id, p.user_id, u.username, u.first_name, u.last_name, COALESCE(u.avatar_url, ''), p.title, p.content, p.tags,
-		p.created_at, p.updated_at, p.version,
-		(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
-		(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
-		EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $1) AS is_liked
+	SELECT ` + feedPostColumns("$1") + `
 	FROM posts p
 	JOIN users u ON u.id = p.user_id
 	WHERE ` + feedFilter + `
@@ -213,14 +237,5 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 	LIMIT $2 OFFSET $3
 	`
 
-	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{userID}, func(rows *sql.Rows) (model.FeedPost, error) {
-		var post model.FeedPost
-		err := rows.Scan(
-			&post.ID, &post.UserID, &post.User.UserName, &post.User.FirstName, &post.User.LastName, &post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags),
-			&post.CreatedAt, &post.UpdatedAt, &post.Version,
-			&post.CommentCount, &post.LikeCount, &post.IsLiked,
-		)
-		post.User.ID = post.UserID
-		return post, err
-	})
+	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{userID}, scanFeedPost)
 }
