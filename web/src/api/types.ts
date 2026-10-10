@@ -109,6 +109,8 @@ export type Post = {
   like_count: number
   is_liked: boolean
   is_saved: boolean
+  repost_count: number
+  is_reposted: boolean
 }
 
 // Trạng thái thích sau khi bấm, do server trả về. Client không tự cộng trừ:
@@ -130,6 +132,14 @@ export type LikeState = {
 // nobody's business.
 export type SaveState = {
   is_saved: boolean
+}
+
+// Khác với lưu bài, repost là công khai nên có số đếm đi kèm.
+//
+// Unlike saving, a repost is public, so it comes with a count.
+export type RepostState = {
+  repost_count: number
+  is_reposted: boolean
 }
 
 export type PostCreate = {
@@ -155,6 +165,8 @@ export type FeedPost = {
   like_count: number
   is_liked: boolean
   is_saved: boolean
+  repost_count: number
+  is_reposted: boolean
   created_at: string
   updated_at: string
   version: number

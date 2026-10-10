@@ -6,6 +6,7 @@ import type { FeedPost } from '../../api/types'
 import { formatDateTime } from '../../lib/format'
 import { UserAvatar } from '../users/UserAvatar'
 import { LikeButton } from './LikeButton'
+import { RepostButton } from './RepostButton'
 import { SaveButton } from './SaveButton'
 
 /**
@@ -54,6 +55,12 @@ export function PostCard({ post }: { post: FeedPost }) {
 
         <div className="mt-3 -ml-2 flex items-center gap-1">
           <LikeButton postID={post.id} likeCount={post.like_count} isLiked={post.is_liked} />
+
+          <RepostButton
+            postID={post.id}
+            repostCount={post.repost_count}
+            isReposted={post.is_reposted}
+          />
 
           {/* Số bình luận dẫn tới trang chi tiết, vì đó là nơi duy nhất đọc và
               viết được bình luận.

@@ -273,29 +273,40 @@ export function ProfilePage() {
             The queryKey carries the userID so two profiles do not share a
             cache, while still starting with 'userPosts' so a new post can
             refresh every list with one prefix invalidation. */}
-        {isSelf ? (
-          // Tab "Đã lưu" chỉ có trên trang của chính mình, vì danh sách đã
-          // lưu là riêng tư và API cũng không có đường để xem của người khác.
-          //
-          // The "Đã lưu" tab exists only on your own page, because a saved
-          // list is private and the API offers no way to read someone else's.
-          <Tabs defaultValue="posts">
-            <div className="mb-3 flex items-center justify-between gap-4">
-              <TabsList>
-                <TabsTrigger value="posts">Bài viết</TabsTrigger>
-                <TabsTrigger value="saved">Đã lưu</TabsTrigger>
-              </TabsList>
-              <NewPostButton />
-            </div>
+        {/* "Đã repost" là công khai nên có trên mọi trang cá nhân; "Đã lưu"
+            là riêng tư nên chỉ có trên trang của chính mình, và API cũng
+            không có đường để xem của người khác.
 
-            <TabsContent value="posts">
-              <PostList
-                queryKey={['userPosts', userID]}
-                path={`/v1/users/${userID}/posts`}
-                empty="Bạn chưa đăng bài nào."
-              />
-            </TabsContent>
+            "Đã repost" is public so it appears on every profile; "Đã lưu" is
+            private so it appears only on your own, and the API offers no way
+            to read someone else's. */}
+        <Tabs defaultValue="posts">
+          <div className="mb-3 flex items-center justify-between gap-4">
+            <TabsList>
+              <TabsTrigger value="posts">Bài viết</TabsTrigger>
+              <TabsTrigger value="reposts">Đã repost</TabsTrigger>
+              {isSelf && <TabsTrigger value="saved">Đã lưu</TabsTrigger>}
+            </TabsList>
+            {isSelf && <NewPostButton />}
+          </div>
 
+          <TabsContent value="posts">
+            <PostList
+              queryKey={['userPosts', userID]}
+              path={`/v1/users/${userID}/posts`}
+              empty={isSelf ? 'Bạn chưa đăng bài nào.' : 'Người này chưa đăng bài nào.'}
+            />
+          </TabsContent>
+
+          <TabsContent value="reposts">
+            <PostList
+              queryKey={['userReposts', userID]}
+              path={`/v1/users/${userID}/reposts`}
+              empty={isSelf ? 'Bạn chưa repost bài nào.' : 'Người này chưa repost bài nào.'}
+            />
+          </TabsContent>
+
+          {isSelf && (
             <TabsContent value="saved">
               <PostList
                 queryKey={['saved']}
@@ -303,17 +314,8 @@ export function ProfilePage() {
                 empty="Bạn chưa lưu bài nào. Bấm dấu trang trên một bài để cất nó lại đây."
               />
             </TabsContent>
-          </Tabs>
-        ) : (
-          <>
-            <h2 className="mb-3 font-semibold">Bài viết</h2>
-            <PostList
-              queryKey={['userPosts', userID]}
-              path={`/v1/users/${userID}/posts`}
-              empty="Người này chưa đăng bài nào."
-            />
-          </>
-        )}
+          )}
+        </Tabs>
       </section>
     </main>
   )
