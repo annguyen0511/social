@@ -5,7 +5,6 @@ import { RegisterPage } from './features/auth/RegisterPage'
 import { FeedPage } from './features/feed/FeedPage'
 import { AppLayout } from './features/layout/AppLayout'
 import { PostDetailPage } from './features/posts/PostDetailPage'
-import { BlockedPage } from './features/users/BlockedPage'
 import { ProfilePage } from './features/users/ProfilePage'
 
 export function App() {
@@ -21,7 +20,6 @@ export function App() {
           <Route path="/" element={<FeedPage />} />
           <Route path="/users/:userID" element={<ProfilePage />} />
           <Route path="/posts/:postID" element={<PostDetailPage />} />
-          <Route path="/blocked" element={<BlockedPage />} />
         </Route>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />

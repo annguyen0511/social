@@ -1,11 +1,20 @@
-import type { ComponentType } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 import { Link, NavLink } from 'react-router-dom'
-import { Ban, Compass, Heart, House, LogOut, MessageCircle, SquarePlus } from 'lucide-react'
+import {
+  Compass,
+  Heart,
+  House,
+  LogOut,
+  MessageCircle,
+  Settings,
+  SquarePlus,
+} from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from 'cn'
 import type { User } from '../../api/types'
 import { useComposer } from '../posts/ComposerProvider'
-import { ThemeToggle } from './ThemeToggle'
+import { useSettings } from '../settings/SettingsProvider'
 import { UserAvatar } from '../users/UserAvatar'
 
 type NavItem = {
@@ -28,16 +37,31 @@ const items: NavItem[] = [
   { label: 'Thông báo', icon: Heart },
 ]
 
-// The label is hidden rather than the whole row on a narrow screen, so the rail
-// stays usable as icons instead of disappearing and stranding the reader with
-// no way to navigate.
-//
-// Trên màn hình hẹp thì chỉ ẩn nhãn chứ không ẩn cả dòng, để thanh bên vẫn
-// dùng được dưới dạng icon thay vì biến mất và bỏ người dùng lại không còn
-// đường nào để chuyển trang.
 const row =
-  'flex items-center gap-4 rounded-lg px-3 py-2.5 text-sm transition-colors lg:w-full'
-const label = 'hidden truncate lg:inline'
+  'flex size-11 items-center justify-center rounded-lg transition-colors'
+
+/**
+ * Wraps a rail item so its name appears on hover and on keyboard focus.
+ *
+ * The rail is icons only, which keeps it narrow but leaves every item unnamed
+ * until you already know what it does. A tooltip gives the name back without
+ * widening the rail or shifting the page when the pointer moves across it.
+ *
+ * Bọc một mục trên thanh để tên của nó hiện ra khi rê chuột và khi focus bằng
+ * bàn phím.
+ *
+ * Thanh bên chỉ có icon, nhờ vậy nó hẹp, nhưng đổi lại mọi mục đều không có
+ * tên cho tới khi bạn vốn đã biết nó làm gì. Tooltip trả lại cái tên đó mà
+ * không làm thanh rộng ra hay làm trang nhảy khi con trỏ đi ngang qua.
+ */
+function RailItem({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
 
 export function AppSidebar({
   me,
@@ -49,105 +73,109 @@ export function AppSidebar({
   loggingOut: boolean
 }) {
   const openComposer = useComposer()
+  const openSettings = useSettings()
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-16 flex-col border-r border-border bg-background px-2 py-4 lg:w-60 lg:px-3">
-      <Link to="/" className={cn(row, 'mb-4 font-semibold')} aria-label="Social">
-        <span className="grid size-6 shrink-0 place-items-center rounded-md bg-foreground text-xs text-background">
-          S
-        </span>
-        <span className={label}>Social</span>
-      </Link>
+    // delayDuration 0 vì thanh này chỉ có icon: chờ nửa giây mới hiện tên thì
+    // người chưa quen phải rê từng mục và đợi ở từng mục một.
+    //
+    // delayDuration 0 because the rail is icons only: waiting half a second
+    // for a name means anyone new has to hover each item and wait at each one.
+    <TooltipProvider delayDuration={0}>
+      <aside className="fixed inset-y-0 left-0 z-30 flex w-16 flex-col items-center gap-1 border-r border-border bg-background py-4">
+        <Link to="/" className={cn(row, 'mb-3')} aria-label="Social">
+          <span className="grid size-7 place-items-center rounded-md bg-foreground text-xs font-semibold text-background">
+            S
+          </span>
+        </Link>
 
-      <nav className="flex flex-1 flex-col gap-1">
-        {items.map(({ label: text, icon: Icon, to }) =>
-          to ? (
-            <NavLink
-              key={text}
-              to={to}
-              end
-              className={({ isActive }) =>
-                cn(row, 'hover:bg-muted', isActive && 'font-semibold')
-              }
-            >
-              <Icon className="size-6 shrink-0" />
-              <span className={label}>{text}</span>
-            </NavLink>
-          ) : (
+        <nav className="flex flex-1 flex-col items-center gap-1">
+          {items.map(({ label, icon: Icon, to }) =>
+            to ? (
+              <RailItem key={label} label={label}>
+                <NavLink
+                  to={to}
+                  end
+                  aria-label={label}
+                  className={({ isActive }) =>
+                    cn(row, 'hover:bg-muted', isActive && 'bg-muted')
+                  }
+                >
+                  <Icon className="size-6" />
+                </NavLink>
+              </RailItem>
+            ) : (
+              <RailItem key={label} label={`${label} — sắp có`}>
+                <button
+                  type="button"
+                  disabled
+                  aria-label={label}
+                  className={cn(row, 'cursor-not-allowed text-muted-foreground opacity-50')}
+                >
+                  <Icon className="size-6" />
+                </button>
+              </RailItem>
+            ),
+          )}
+
+          {/* "Tạo" mở hộp thoại chứ không chuyển trang, nên nó không nằm trong
+              mảng items vốn chỉ mô tả các đích điều hướng.
+
+              "Tạo" opens a dialog instead of navigating, so it is not in the
+              items array, which only describes navigation targets. */}
+          <RailItem label="Tạo bài viết">
             <button
-              key={text}
               type="button"
-              disabled
-              title={`${text} — sắp có`}
-              className={cn(row, 'cursor-not-allowed text-muted-foreground opacity-50')}
+              aria-label="Tạo bài viết"
+              onClick={openComposer}
+              className={cn(row, 'hover:bg-muted')}
             >
-              <Icon className="size-6 shrink-0" />
-              <span className={label}>{text}</span>
+              <SquarePlus className="size-6" />
             </button>
-          ),
-        )}
-        {/* "Tạo" mở hộp thoại chứ không chuyển trang, nên nó không nằm trong
-            mảng items vốn chỉ mô tả các đích điều hướng.
+          </RailItem>
+        </nav>
 
-            "Tạo" opens a dialog instead of navigating, so it is not in the
-            items array, which only describes navigation targets. */}
-        <button type="button" onClick={openComposer} className={cn(row, 'hover:bg-muted')}>
-          <SquarePlus className="size-6 shrink-0" />
-          <span className={label}>Tạo</span>
-        </button>
-      </nav>
+        <div className="flex flex-col items-center gap-1">
+          {me ? (
+            <RailItem label={`Trang cá nhân (@${me.username})`}>
+              <NavLink
+                to={`/users/${me.id}`}
+                aria-label="Trang cá nhân"
+                className={({ isActive }) => cn(row, 'hover:bg-muted', isActive && 'bg-muted')}
+              >
+                <UserAvatar user={me} className="size-7 text-[10px]" />
+              </NavLink>
+            </RailItem>
+          ) : (
+            <div className={row}>
+              <Skeleton className="size-7 rounded-full" />
+            </div>
+          )}
 
-      <div className="flex flex-col gap-1">
-        {/* Avatar của chính mình, dẫn tới trang cá nhân. Chưa tải xong thì giữ
-            chỗ bằng khối xám để thanh bên không bị nhảy.
+          <RailItem label="Cài đặt">
+            <button
+              type="button"
+              aria-label="Cài đặt"
+              onClick={() => openSettings()}
+              className={cn(row, 'hover:bg-muted')}
+            >
+              <Settings className="size-6" />
+            </button>
+          </RailItem>
 
-            The reader's own avatar, leading to their profile. A grey block
-            holds the space while it loads so the rail does not jump. */}
-        {me ? (
-          <NavLink
-            to={`/users/${me.id}`}
-            className={({ isActive }) =>
-              cn(row, 'hover:bg-muted', isActive && 'font-semibold')
-            }
-            title={`@${me.username}`}
-          >
-            <UserAvatar user={me} className="size-6 shrink-0 text-[10px]" />
-            <span className={label}>Trang cá nhân</span>
-          </NavLink>
-        ) : (
-          <div className={row}>
-            <Skeleton className="size-6 shrink-0 rounded-full" />
-            <Skeleton className={cn(label, 'h-4 w-24')} />
-          </div>
-        )}
-
-        {/* Danh sách chặn nằm ở cụm dưới cùng với giao diện và đăng xuất:
-            đó là việc quản lý tài khoản, không phải một nơi để lui tới hằng
-            ngày như bảng tin.
-
-            The blocked list sits in the bottom cluster with the theme and
-            logout: it is account management, not somewhere to visit daily the
-            way the feed is. */}
-        <NavLink
-          to="/blocked"
-          className={({ isActive }) => cn(row, 'hover:bg-muted', isActive && 'font-semibold')}
-        >
-          <Ban className="size-6 shrink-0" />
-          <span className={label}>Đã chặn</span>
-        </NavLink>
-
-        <ThemeToggle className={cn(row, 'h-auto font-normal hover:bg-muted')} labelClassName={label} />
-
-        <button
-          type="button"
-          onClick={onLogout}
-          disabled={loggingOut}
-          className={cn(row, 'hover:bg-muted disabled:opacity-40')}
-        >
-          <LogOut className="size-6 shrink-0" />
-          <span className={label}>Đăng xuất</span>
-        </button>
-      </div>
-    </aside>
+          <RailItem label="Đăng xuất">
+            <button
+              type="button"
+              aria-label="Đăng xuất"
+              onClick={onLogout}
+              disabled={loggingOut}
+              className={cn(row, 'hover:bg-muted disabled:opacity-40')}
+            >
+              <LogOut className="size-6" />
+            </button>
+          </RailItem>
+        </div>
+      </aside>
+    </TooltipProvider>
   )
 }

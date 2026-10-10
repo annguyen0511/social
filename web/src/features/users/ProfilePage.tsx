@@ -8,8 +8,8 @@ import { HttpError, del, get, isUnauthorized, put } from '../../api/client'
 import type { FriendshipStatus, User, UserProfile } from '../../api/types'
 import { formatCount } from '../../lib/format'
 import { NewPostButton } from '../posts/NewPostButton'
+import { useSettings } from '../settings/SettingsProvider'
 import { PostList } from '../posts/PostList'
-import { EditProfileDialog } from './EditProfileDialog'
 import { FollowListDialog, type FollowListKind } from './FollowListDialog'
 import { FollowButton } from './FollowButton'
 import { UserAvatar } from './UserAvatar'
@@ -80,7 +80,7 @@ function RelationButton({
 export function ProfilePage() {
   const { userID = '' } = useParams()
   const id = Number(userID)
-  const [editing, setEditing] = useState(false)
+  const openSettings = useSettings()
   // null nghĩa là chưa mở danh sách nào.
   // null means no list is open.
   const [peopleList, setPeopleList] = useState<FollowListKind | null>(null)
@@ -203,13 +203,22 @@ export function ProfilePage() {
             />
           )}
 
+          {/* Mở thẳng cài đặt ở mục trang cá nhân, thay vì một hộp thoại
+              riêng làm cùng việc đó ở nơi khác.
+
+              Opens settings straight at the profile section, rather than a
+              separate dialog doing the same job somewhere else. */}
           {isSelf && (
             <div className="mt-4">
-              <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => openSettings('profile')}
+              >
                 <Pencil />
                 Chỉnh sửa
               </Button>
-              <EditProfileDialog user={user.data} open={editing} onOpenChange={setEditing} />
             </div>
           )}
 

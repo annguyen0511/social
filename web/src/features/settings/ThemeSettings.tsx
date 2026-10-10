@@ -1,12 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Check, Monitor, Moon, Sun } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { cn } from 'cn'
 import {
   applyTheme,
@@ -17,10 +10,15 @@ import {
   type Theme,
 } from '../../lib/theme'
 
-const options: { value: Theme; label: string; icon: typeof Sun }[] = [
-  { value: 'light', label: 'Sáng', icon: Sun },
-  { value: 'dark', label: 'Tối', icon: Moon },
-  { value: 'system', label: 'Theo hệ thống', icon: Monitor },
+const options: { value: Theme; label: string; hint: string; icon: typeof Sun }[] = [
+  { value: 'light', label: 'Sáng', hint: 'Luôn dùng giao diện sáng', icon: Sun },
+  { value: 'dark', label: 'Tối', hint: 'Luôn dùng giao diện tối', icon: Moon },
+  {
+    value: 'system',
+    label: 'Theo hệ thống',
+    hint: 'Đổi theo cài đặt của máy bạn',
+    icon: Monitor,
+  },
 ]
 
 /**
@@ -37,13 +35,7 @@ const options: { value: Theme; label: string; icon: typeof Sun }[] = [
  * quay lại, và chính nó khiến ứng dụng đi theo một chiếc điện thoại tự chuyển
  * tối vào buổi tối.
  */
-export function ThemeToggle({
-  className,
-  labelClassName,
-}: {
-  className?: string
-  labelClassName?: string
-}) {
+export function ThemeSettings() {
   const [theme, setTheme] = useState<Theme>(readTheme)
 
   // The third argument is the value when there is no window at all. It keeps
@@ -64,42 +56,40 @@ export function ThemeToggle({
     applyTheme(theme)
   }, [theme, systemDark])
 
-  const choose = (next: Theme) => {
-    setTheme(next)
-    storeTheme(next)
-  }
-
-  // The icon shows what is on screen, not what was chosen: under "system" the
-  // word tells you nothing about whether it is currently dark.
-  //
-  // Icon thể hiện thứ đang hiển thị chứ không phải thứ đã chọn: ở chế độ
-  // "theo hệ thống", cái tên không cho biết hiện tại đang sáng hay tối.
-  const showingDark = theme === 'dark' || (theme === 'system' && systemDark)
-  const Icon = showingDark ? Moon : Sun
-
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          aria-label="Đổi giao diện sáng tối"
-          className={cn('justify-start', className)}
-        >
-          <Icon className="size-6 shrink-0" />
-          <span className={labelClassName}>Giao diện</span>
-        </Button>
-      </DropdownMenuTrigger>
+    <section className="space-y-4">
+      <div>
+        <h2 className="font-semibold">Giao diện</h2>
+        <p className="text-sm text-muted-foreground">
+          Lựa chọn được nhớ trên trình duyệt này.
+        </p>
+      </div>
 
-      <DropdownMenuContent align="start">
-        {options.map(({ value, label: text, icon: OptionIcon }) => (
-          <DropdownMenuItem key={value} onSelect={() => choose(value)}>
-            <OptionIcon />
-            {text}
-            {theme === value && <Check className="ml-auto" />}
-          </DropdownMenuItem>
+      <ul className="space-y-1">
+        {options.map(({ value, label, hint, icon: Icon }) => (
+          <li key={value}>
+            <button
+              type="button"
+              onClick={() => {
+                setTheme(value)
+                storeTheme(value)
+              }}
+              aria-pressed={theme === value}
+              className={cn(
+                'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+                theme === value ? 'bg-muted' : 'hover:bg-muted',
+              )}
+            >
+              <Icon className="size-5 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">{label}</span>
+                <span className="block text-sm text-muted-foreground">{hint}</span>
+              </span>
+              {theme === value && <Check className="size-4 shrink-0" />}
+            </button>
+          </li>
         ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </ul>
+    </section>
   )
 }

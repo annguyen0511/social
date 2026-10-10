@@ -1,12 +1,11 @@
-import { Link, Navigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, ShieldOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { del, get, isUnauthorized } from '../../api/client'
+import { del, get } from '../../api/client'
 import type { Pagination, User } from '../../api/types'
-import { UserAvatar } from './UserAvatar'
+import { UserAvatar } from '../users/UserAvatar'
 
 /**
  * Lifts a block from one person.
@@ -51,7 +50,7 @@ function UnblockButton({ userID }: { userID: number }) {
   )
 }
 
-export function BlockedPage() {
+export function BlockedSettings() {
   const query = useInfiniteQuery({
     queryKey: ['blocked'],
     initialPageParam: 1,
@@ -60,19 +59,17 @@ export function BlockedPage() {
     getNextPageParam: (last) => (last.page < last.total_pages ? last.page + 1 : undefined),
   })
 
-  if (isUnauthorized(query.error)) {
-    return <Navigate to="/login" replace />
-  }
-
   const people = query.data?.pages.flatMap((page) => page.items) ?? []
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <h1 className="text-xl font-semibold">Người đã chặn</h1>
-      <p className="mt-1 mb-6 text-sm text-muted-foreground">
-        Họ không thấy bài của bạn và không theo dõi bạn được. Bỏ chặn không khôi phục lại việc theo
-        dõi trước đó.
-      </p>
+    <section className="space-y-4">
+      <div>
+        <h2 className="font-semibold">Người đã chặn</h2>
+        <p className="text-sm text-muted-foreground">
+          Họ không thấy bài của bạn và không theo dõi bạn được. Bỏ chặn không khôi phục lại việc
+          theo dõi trước đó.
+        </p>
+      </div>
 
       {query.isPending && (
         <div className="space-y-3">
@@ -91,9 +88,7 @@ export function BlockedPage() {
       {query.isError && <p className="text-sm text-destructive">Không tải được danh sách.</p>}
 
       {query.isSuccess && people.length === 0 && (
-        <Card>
-          <CardContent className="text-muted-foreground">Bạn chưa chặn ai.</CardContent>
-        </Card>
+        <p className="text-sm text-muted-foreground">Bạn chưa chặn ai.</p>
       )}
 
       <ul className="divide-y divide-border">
@@ -121,12 +116,12 @@ export function BlockedPage() {
           variant="outline"
           onClick={() => query.fetchNextPage()}
           disabled={query.isFetchingNextPage}
-          className="mt-6 w-full"
+          className="w-full"
         >
           {query.isFetchingNextPage && <Loader2 className="animate-spin" />}
           {query.isFetchingNextPage ? 'Đang tải' : 'Tải thêm'}
         </Button>
       )}
-    </main>
+    </section>
   )
 }
