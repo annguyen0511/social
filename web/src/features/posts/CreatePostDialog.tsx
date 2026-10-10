@@ -1,20 +1,36 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { postForm } from '../../api/client'
 import type { Post } from '../../api/types'
+import { ImagePicker, validateImage } from './ImagePicker'
 import { emptyPost, isValidPost, PostForm, type PostFields } from './PostForm'
 
+type Step = 'image' | 'details'
+
+/**
+ * Writing a post, in two steps: pick the picture, then write about it.
+ *
+ * Splitting them keeps either screen from being crowded, and it matches the
+ * order people actually work in — you choose the photo you want to post
+ * before you know what to say about it.
+ *
+ * The step is not a route. A half-written post is not something to put in the
+ * address bar: reloading or sharing that URL would land on an empty form
+ * claiming to be step two.
+ *
+ * Viết một bài, theo hai bước: chọn ảnh, rồi viết về nó.
+ *
+ * Tách ra giúp không màn hình nào bị chật, và nó khớp với thứ tự người ta
+ * thật sự làm — chọn tấm ảnh muốn đăng trước khi biết sẽ nói gì về nó.
+ *
+ * Bước không phải là một route. Một bài viết dở dang không phải thứ nên đưa
+ * lên thanh địa chỉ: tải lại hay chia sẻ URL đó sẽ rơi vào một biểu mẫu rỗng
+ * tự xưng là bước hai.
+ */
 export function CreatePostDialog({
   open,
   onOpenChange,
@@ -22,13 +38,25 @@ export function CreatePostDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const [step, setStep] = useState<Step>('image')
   const [fields, setFields] = useState<PostFields>(emptyPost)
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (open) setFields(emptyPost)
+    if (!open) return
+    setStep('image')
+    setFields(emptyPost)
   }, [open])
+
+  const preview = useMemo(
+    () => (fields.image ? URL.createObjectURL(fields.image) : null),
+    [fields.image],
+  )
+  useEffect(() => {
+    if (!preview) return
+    return () => URL.revokeObjectURL(preview)
+  }, [preview])
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -60,33 +88,112 @@ export function CreatePostDialog({
     },
   })
 
+  const onImage = step === 'image'
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Bài viết mới</DialogTitle>
-          <DialogDescription>Bài sẽ hiện trên bảng tin của bạn và những người theo dõi bạn.</DialogDescription>
-        </DialogHeader>
+      {/* Khung cố định, không co theo từng bước: bước chọn ảnh gần như trống
+          còn bước chi tiết là cả một biểu mẫu, để hộp thoại tự co sẽ khiến nó
+          nhảy kích thước khi bấm Tiếp.
 
-        <PostForm id="create-post" fields={fields} onChange={setFields} onSubmit={() => mutation.mutate()} />
-
-        {mutation.isError && (
-          <p className="text-sm text-destructive">{mutation.error.message}</p>
-        )}
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Huỷ
-          </Button>
+          A fixed frame, not one that follows each step: the picture step is
+          nearly empty while the details step is a whole form, so letting the
+          dialog size itself would make it jump when you press Next. */}
+      <DialogContent
+        showCloseButton={false}
+        className="grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-4xl grid-rows-[auto_1fr] gap-0 overflow-hidden p-0 sm:max-w-4xl"
+      >
+        <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-2">
           <Button
-            type="submit"
-            form="create-post"
-            disabled={!isValidPost(fields) || mutation.isPending}
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={mutation.isPending}
+            onClick={() => (onImage ? onOpenChange(false) : setStep('image'))}
           >
-            {mutation.isPending && <Loader2 className="animate-spin" />}
-            {mutation.isPending ? 'Đang đăng' : 'Đăng'}
+            <ArrowLeft />
+            {onImage ? 'Huỷ' : 'Quay lại'}
           </Button>
-        </DialogFooter>
+
+          <DialogTitle className="text-sm font-semibold">
+            {onImage ? 'Chọn ảnh' : 'Bài viết mới'}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Chọn ảnh ở bước một, rồi viết nội dung ở bước hai.
+          </DialogDescription>
+
+          {onImage ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              // Bỏ qua ảnh được, nhưng phải đi qua đường dẫn trong màn hình
+              // chứ không phải nút này — nút này chỉ sáng khi đã có ảnh, để
+              // "Tiếp" luôn có nghĩa là "xong bước chọn ảnh".
+              //
+              // Skipping the picture is allowed, but through the link inside
+              // the screen rather than this button — it only lights up once
+              // there is an image, so "Tiếp" always means "done picking".
+              disabled={!fields.image}
+              onClick={() => setStep('details')}
+            >
+              Tiếp
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              disabled={!isValidPost(fields) || mutation.isPending}
+              onClick={() => mutation.mutate()}
+            >
+              {mutation.isPending && <Loader2 className="animate-spin" />}
+              {mutation.isPending ? 'Đang đăng' : 'Đăng'}
+            </Button>
+          )}
+        </header>
+
+        <div className="min-h-0 overflow-hidden">
+          {onImage ? (
+            <ImagePicker
+              image={fields.image}
+              error={fields.imageError}
+              onPick={(file) => {
+                const error = validateImage(file)
+                setFields({ ...fields, image: error ? null : file, imageError: error })
+              }}
+              onClear={() => setFields({ ...fields, image: null, imageError: null })}
+              onSkip={() => setStep('details')}
+            />
+          ) : (
+            <div className="flex h-[26rem] min-h-0">
+              {/* Ảnh ở lại bên trái suốt bước hai, để người viết nhìn thấy
+                  thứ mình đang viết về. Bài không có ảnh thì cột này biến
+                  mất và biểu mẫu chiếm trọn bề ngang.
+
+                  The picture stays on the left through step two, so whoever
+                  is writing can see what they are writing about. With no
+                  image the column disappears and the form takes the width. */}
+              {preview && (
+                <div className="hidden min-h-0 w-1/2 shrink-0 place-items-center bg-muted/40 p-4 sm:grid">
+                  <img src={preview} alt="" className="max-h-full max-w-full object-contain" />
+                </div>
+              )}
+
+              <div className="min-w-0 flex-1 overflow-y-auto p-5">
+                <PostForm
+                  id="create-post"
+                  fields={fields}
+                  onChange={setFields}
+                  onSubmit={() => mutation.mutate()}
+                />
+
+                {mutation.isError && (
+                  <p className="mt-4 text-sm text-destructive">{mutation.error.message}</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   )

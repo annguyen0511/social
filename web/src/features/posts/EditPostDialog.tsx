@@ -95,7 +95,6 @@ export function EditPostDialog({
           fields={fields}
           onChange={setFields}
           onSubmit={() => mutation.mutate()}
-          allowImage={false}
         />
 
         {errorText && <p className="text-sm text-destructive">{errorText}</p>}
