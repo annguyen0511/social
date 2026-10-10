@@ -4,6 +4,32 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Social Network</title>
+    <!--
+      Chạy trước khi trình duyệt vẽ khung hình đầu tiên. Nếu để React đặt class
+      sau khi mount thì người dùng chọn giao diện tối sẽ thấy một khoảnh khắc
+      trắng loá ở mỗi lần tải trang.
+
+      Khoá "theme" và cách tính phải khớp với src/lib/theme.ts.
+
+      Runs before the browser paints the first frame. Leaving React to set the
+      class after mount would flash a white page at anyone who chose the dark
+      theme, on every single load.
+
+      The "theme" key and the logic here must match src/lib/theme.ts.
+    -->
+    <script>
+      try {
+        var stored = localStorage.getItem('theme')
+        var dark =
+          stored === 'dark' ||
+          ((!stored || stored === 'system') &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('dark', dark)
+      } catch (e) {
+        /* Không có localStorage thì dùng mặc định sáng. */
+        /* Without localStorage, fall back to the light theme. */
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

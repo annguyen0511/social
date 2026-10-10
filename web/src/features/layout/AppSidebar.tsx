@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from 'cn'
 import type { User } from '../../api/types'
 import { useComposer } from '../posts/ComposerProvider'
+import { ThemeToggle } from './ThemeToggle'
 import { UserAvatar } from '../users/UserAvatar'
 
 type NavItem = {
@@ -119,6 +120,8 @@ export function AppSidebar({
             <Skeleton className={cn(label, 'h-4 w-24')} />
           </div>
         )}
+
+        <ThemeToggle className={cn(row, 'h-auto font-normal hover:bg-muted')} labelClassName={label} />
 
         <button
           type="button"
