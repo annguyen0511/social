@@ -42,9 +42,11 @@ const ratios: { label: string; value: number | null }[] = [
 export function ImageCropper({
   src,
   onCropped,
+  onNaturalSize,
 }: {
   src: string
   onCropped: (area: Area) => void
+  onNaturalSize: (size: { width: number; height: number }) => void
 }) {
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
@@ -68,9 +70,10 @@ export function ImageCropper({
           maxZoom={4}
           onCropChange={setCrop}
           onZoomChange={setZoom}
-          onMediaLoaded={(size: MediaSize) =>
+          onMediaLoaded={(size: MediaSize) => {
             setNaturalRatio(size.naturalWidth / size.naturalHeight)
-          }
+            onNaturalSize({ width: size.naturalWidth, height: size.naturalHeight })
+          }}
           // croppedAreaPixels is already in the original file's coordinates,
           // which is exactly what the server's CropRect expects.
           //

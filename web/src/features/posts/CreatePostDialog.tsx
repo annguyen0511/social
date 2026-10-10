@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { postForm } from '../../api/client'
 import type { Post } from '../../api/types'
+import { CroppedPreview } from './CroppedPreview'
 import { ImagePicker, validateImage } from './ImagePicker'
 import { emptyPost, isValidPost, PostForm, type PostFields } from './PostForm'
 
@@ -183,11 +184,14 @@ export function CreatePostDialog({
               error={fields.imageError}
               onPick={(file) => {
                 const error = validateImage(file)
-                setFields({ ...fields, image: error ? null : file, imageError: error, crop: null })
+                setFields({ ...fields, image: error ? null : file, imageError: error, crop: null, imageSize: null })
               }}
-              onClear={() => setFields({ ...fields, image: null, imageError: null, crop: null })}
+              onClear={() =>
+                setFields({ ...fields, image: null, imageError: null, crop: null, imageSize: null })
+              }
               onSkip={() => setStep('details')}
               onCrop={(crop) => setFields((current) => ({ ...current, crop }))}
+              onNaturalSize={(imageSize) => setFields((current) => ({ ...current, imageSize }))}
             />
           ) : (
             <div className="flex h-full min-h-0">
@@ -200,7 +204,17 @@ export function CreatePostDialog({
                   image the column disappears and the form takes the width. */}
               {preview && (
                 <div className="hidden min-h-0 w-1/2 shrink-0 place-items-center bg-muted/40 p-4 sm:grid">
-                  <img src={preview} alt="" className="max-h-full max-w-full object-contain" />
+                  {/* Phần đã cắt, không phải file gốc: đây là thứ sẽ được
+                      đăng, nên xem trước phải khớp với nó.
+
+                      The cropped region, not the original file: this is what
+                      gets posted, so the preview has to match it. */}
+                  <CroppedPreview
+                    src={preview}
+                    crop={fields.crop}
+                    naturalSize={fields.imageSize}
+                    className="max-h-full max-w-full object-contain"
+                  />
                 </div>
               )}
 

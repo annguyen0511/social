@@ -36,6 +36,12 @@ export type PostFields = {
   // The crop rectangle in the original file's own pixels. null when no
   // picture is chosen, or the frame has not been touched yet.
   crop: CropArea | null
+  // Kích thước thật của file đã chọn, đo được khi ảnh tải xong. Cần để quy
+  // đổi toạ độ vùng cắt thành phần trăm lúc xem trước.
+  //
+  // The chosen file's real size, measured once it has loaded. Needed to turn
+  // the crop coordinates into percentages for the preview.
+  imageSize: { width: number; height: number } | null
 }
 
 export const emptyPost: PostFields = {
@@ -54,6 +60,7 @@ export const emptyPost: PostFields = {
   image: null,
   imageError: null,
   crop: null,
+  imageSize: null,
 }
 
 const options: { value: Visibility; label: string; hint: string; icon: typeof Globe }[] = [

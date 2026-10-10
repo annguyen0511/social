@@ -37,6 +37,7 @@ export function ImagePicker({
   onClear,
   onSkip,
   onCrop,
+  onNaturalSize,
 }: {
   image: File | null
   error: string | null
@@ -44,6 +45,7 @@ export function ImagePicker({
   onClear: () => void
   onSkip: () => void
   onCrop: (area: CropArea) => void
+  onNaturalSize: (size: { width: number; height: number }) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -82,7 +84,7 @@ export function ImagePicker({
       />
 
       {preview ? (
-        <ImageCropper src={preview} onCropped={onCrop} />
+        <ImageCropper src={preview} onCropped={onCrop} onNaturalSize={onNaturalSize} />
       ) : (
         // Thả file vào là cách người ta mong đợi ở một màn hình như thế này,
         // và nó không thay thế nút bấm mà chỉ thêm một lối vào.
