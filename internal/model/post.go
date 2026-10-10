@@ -60,14 +60,16 @@ type Post struct {
 	RepostCount int64 `json:"repost_count"`
 	IsReposted  bool  `json:"is_reposted"`
 
-	// Image is nil for a post with no picture. The URL inside it goes through
+	// Images is empty for a post with no pictures, never null in JSON, so a
+	// client can map over it without checking first. Each URL goes through
 	// the API rather than straight to a file, because a private post's
-	// picture has to be as private as the post.
+	// pictures have to be as private as the post.
 	//
-	// Image là nil với bài không có ảnh. URL bên trong đi qua API chứ không
-	// trỏ thẳng tới file, vì ảnh của một bài riêng tư phải riêng tư đúng như
-	// chính bài đó.
-	Image *PostImage `json:"image"`
+	// Images rỗng với bài không có ảnh, và không bao giờ là null trong JSON,
+	// để client duyệt qua được mà không phải kiểm trước. Mỗi URL đi qua API
+	// chứ không trỏ thẳng tới file, vì ảnh của một bài riêng tư phải riêng tư
+	// đúng như chính bài đó.
+	Images []PostImage `json:"images"`
 } //@name PostViewModel
 
 type FeedPost struct {
@@ -85,7 +87,7 @@ type FeedPost struct {
 // Width và Height đi kèm để trình duyệt chừa đúng chỗ trước khi dữ liệu ảnh
 // về; thiếu chúng thì feed nhảy giật mỗi lần một tấm ảnh hiện ra.
 type PostImage struct {
-	URL    string `json:"url" example:"/v1/posts/42/image"`
+	URL    string `json:"url" example:"/v1/posts/42/image/9f2c....jpg"`
 	Width  int    `json:"width" example:"1080"`
 	Height int    `json:"height" example:"810"`
 } //@name PostImageViewModel

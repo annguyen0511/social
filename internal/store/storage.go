@@ -25,8 +25,9 @@ type Storage struct {
 		Create(context.Context, *model.Post) error
 		Update(context.Context, *model.Post) error
 		GetById(context.Context, int64) (*model.Post, error)
-		AttachImage(ctx context.Context, postID int64, fileName string, width, height int) error
-		ImageName(ctx context.Context, postID int64) (string, error)
+		AttachImage(ctx context.Context, postID int64, fileName string, width, height, position int) error
+		ImageNames(ctx context.Context, postID int64) ([]string, error)
+		HasImage(ctx context.Context, postID int64, fileName string) (bool, error)
 		Delete(context.Context, int64) error
 		GetUserFeed(context.Context, int64, PaginationQuery) ([]model.FeedPost, int64, error)
 		GetByUser(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error)

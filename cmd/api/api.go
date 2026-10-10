@@ -140,7 +140,7 @@ func (app *application) mount() *chi.Mux {
 				r.Use(app.postContextMiddileware)
 
 				r.Get("/", app.getPostHandler)
-				r.Get("/image", app.servePostImageHandler)
+				r.Get("/image/{imageName}", app.servePostImageHandler)
 				r.Post("/comment", app.createCommentHandler)
 				r.Put("/like", app.likeHandler)
 				r.Delete("/like", app.unlikeHandler)
