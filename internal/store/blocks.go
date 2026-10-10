@@ -84,20 +84,45 @@ func (s *BlockStore) Unblock(ctx context.Context, blockerId int64, blockedId int
 	return nil
 }
 
-func (s *BlockStore) ListBlocking(ctx context.Context, blockerId int64, page PaginationQuery) ([]model.Block, int64, error) {
+// ListBlocking returns the people blockerId has blocked.
+//
+// It returns the users themselves rather than the rows of the blocks table.
+// A pair of ids cannot be shown to anyone: a list of blocked people has to
+// say who they are, and resolving each id separately would be one query per
+// row.
+//
+// is_active is not filtered on, unlike everywhere else. Someone whose account
+// was never activated can still have been blocked, and hiding them would
+// leave a block the owner can neither see nor lift.
+//
+// ListBlocking trả về những người mà blockerId đã chặn.
+//
+// Nó trả về chính các user chứ không phải các dòng của bảng blocks. Một cặp
+// id thì không hiển thị cho ai được: danh sách người bị chặn phải nói rõ họ
+// là ai, mà tra từng id riêng lẻ sẽ thành một truy vấn cho mỗi dòng.
+//
+// Ở đây không lọc theo is_active, khác với mọi nơi khác. Một tài khoản chưa
+// từng kích hoạt vẫn có thể đã bị chặn, và giấu họ đi sẽ để lại một lệnh chặn
+// mà chính chủ không nhìn thấy cũng không gỡ được.
+func (s *BlockStore) ListBlocking(ctx context.Context, blockerId int64, page PaginationQuery) ([]model.User, int64, error) {
 	countQuery := `SELECT COUNT(*) FROM blocks WHERE blocker_id = $1`
 	pageQuery := `
-	SELECT blocker_id, blocked_id, created_at
-	FROM blocks
-	WHERE blocker_id = $1
-	ORDER BY created_at DESC, blocked_id DESC
+	SELECT u.id, u.first_name, u.last_name, COALESCE(u.avatar_url, ''), u.username,
+	       u.email, u.is_active, u.created_at, u.updated_at
+	FROM blocks b
+	JOIN users u ON u.id = b.blocked_id
+	WHERE b.blocker_id = $1
+	ORDER BY b.created_at DESC, u.id DESC
 	LIMIT $2 OFFSET $3
 	`
 
-	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{blockerId}, func(rows *sql.Rows) (model.Block, error) {
-		var block model.Block
-		err := rows.Scan(&block.BlockerID, &block.BlockedID, &block.CreatedAt)
-		return block, err
+	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{blockerId}, func(rows *sql.Rows) (model.User, error) {
+		var user model.User
+		err := rows.Scan(
+			&user.ID, &user.FirstName, &user.LastName, &user.AvatarURL, &user.UserName,
+			&user.Email, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+		)
+		return user, err
 	})
 }
 

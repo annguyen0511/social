@@ -59,7 +59,7 @@ type Storage struct {
 	Block interface {
 		Block(ctx context.Context, blockerId int64, blockedId int64) error
 		Unblock(ctx context.Context, blockerId int64, blockedId int64) error
-		ListBlocking(ctx context.Context, blockerId int64, page PaginationQuery) ([]model.Block, int64, error)
+		ListBlocking(ctx context.Context, blockerId int64, page PaginationQuery) ([]model.User, int64, error)
 		IsBlocking(ctx context.Context, blockerId int64, blockedId int64) (bool, error)
 	}
 	Like interface {
