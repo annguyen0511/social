@@ -310,14 +310,14 @@ func (app *application) listFollowingHandler(w http.ResponseWriter, r *http.Requ
 //
 //	@Summary		List users I block
 //	@Description	The people the signed-in user has blocked, most recently blocked first.
-//	@Tags		Friendship
-//	@Produce	json
-//	@Param		page		query		int	false	"Page number, starting at 1"	default(1)	minimum(1)
-//	@Param		page_size	query		int	false	"Items per page"				default(20)	minimum(1)	maximum(100)
-//	@Success	200			{object}	UserViewModelPaginationResponse
-//	@Failure	400			{object}	JSONError	"page or page_size is not a positive integer, or page_size is over 100"
-//	@Failure	500			{object}	JSONError
-//	@Router		/friend-ship/blocking [get]
+//	@Tags			Friendship
+//	@Produce		json
+//	@Param			page		query		int	false	"Page number, starting at 1"	default(1)	minimum(1)
+//	@Param			page_size	query		int	false	"Items per page"				default(20)	minimum(1)	maximum(100)
+//	@Success		200			{object}	UserViewModelPaginationResponse
+//	@Failure		400			{object}	JSONError	"page or page_size is not a positive integer, or page_size is over 100"
+//	@Failure		500			{object}	JSONError
+//	@Router			/friend-ship/blocking [get]
 func (app *application) listBlockingHandler(w http.ResponseWriter, r *http.Request) {
 	page, err := readPagination(r)
 	if err != nil {
