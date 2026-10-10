@@ -130,6 +130,14 @@ func (app *application) mount() *chi.Mux {
 			r.Put("/activate/{token}", app.activateUserHandler)
 			r.Post("/login", app.loginHandler)
 			r.Post("/logout", app.logoutHandler)
+
+			// Không nằm sau requireAuth, và đó là chủ đích: người quên mật
+			// khẩu thì đúng là người không đăng nhập được.
+			//
+			// Not behind requireAuth, deliberately: someone who forgot their
+			// password is precisely someone who cannot sign in.
+			r.Post("/forgot-password", app.forgotPasswordHandler)
+			r.Post("/reset-password", app.resetPasswordHandler)
 		})
 
 		r.Route("/posts", func(r chi.Router) {
@@ -172,6 +180,7 @@ func (app *application) mount() *chi.Mux {
 			r.Group(func(r chi.Router) {
 				r.Get("/me", app.getCurrentUserHandler)
 				r.Patch("/me", app.updateProfileHandler)
+				r.Put("/me/password", app.changePasswordHandler)
 				r.Post("/me/avatar", app.uploadAvatarHandler)
 				r.Delete("/me/avatar", app.deleteAvatarHandler)
 				r.Get("/me/saved", app.listSavedHandler)

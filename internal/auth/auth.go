@@ -26,13 +26,32 @@ var ErrInvalidToken = errors.New("invalid authentication token")
 // giữ cho tầng HTTP không phụ thuộc vào một thư viện JWT cụ thể, và cho phép
 // test thay bằng bản giả.
 type Authenticator interface {
-	// GenerateToken returns a signed token for userID.
-	// GenerateToken trả về token đã ký cho userID.
-	GenerateToken(userID int64) (string, error)
+	// GenerateToken returns a signed token for userID, stamped with the
+	// account's current token version.
+	//
+	// GenerateToken trả về token đã ký cho userID, đóng dấu kèm phiên bản
+	// token hiện tại của tài khoản.
+	GenerateToken(userID int64, version int) (string, error)
 
-	// ParseUserID verifies the token and returns the user it belongs to.
-	// ParseUserID kiểm tra token và trả về user mà nó thuộc về.
-	ParseUserID(token string) (int64, error)
+	// ParseIdentity verifies the token and returns who it belongs to along
+	// with the version it was signed under. The caller compares that version
+	// against the account's current one; a token alone proves nothing about
+	// whether the password has changed since.
+	//
+	// ParseIdentity kiểm tra token rồi trả về chủ nhân của nó cùng phiên bản
+	// lúc ký. Phía gọi phải đối chiếu phiên bản đó với phiên bản hiện tại của
+	// tài khoản; bản thân token không nói lên được mật khẩu đã đổi hay chưa.
+	ParseIdentity(token string) (userID int64, version int, err error)
+}
+
+// claims carries the version alongside the registered fields. It is a
+// separate type because jwt.RegisteredClaims has no room for a custom one.
+//
+// claims mang thêm phiên bản bên cạnh các field chuẩn. Phải là kiểu riêng vì
+// jwt.RegisteredClaims không có chỗ cho field tự định nghĩa.
+type claims struct {
+	jwt.RegisteredClaims
+	Version int `json:"ver"`
 }
 
 // JWTAuthenticator signs tokens with HMAC-SHA256.
@@ -47,28 +66,31 @@ func NewJWT(secret, issuer string, exp time.Duration) *JWTAuthenticator {
 	return &JWTAuthenticator{secret: []byte(secret), issuer: issuer, exp: exp}
 }
 
-func (a *JWTAuthenticator) GenerateToken(userID int64) (string, error) {
+func (a *JWTAuthenticator) GenerateToken(userID int64, version int) (string, error) {
 	now := time.Now()
-	claims := jwt.RegisteredClaims{
-		Subject:   strconv.FormatInt(userID, 10),
-		Issuer:    a.issuer,
-		Audience:  jwt.ClaimStrings{a.issuer},
-		IssuedAt:  jwt.NewNumericDate(now),
-		NotBefore: jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(a.exp)),
+	c := claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   strconv.FormatInt(userID, 10),
+			Issuer:    a.issuer,
+			Audience:  jwt.ClaimStrings{a.issuer},
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(a.exp)),
+		},
+		Version: version,
 	}
 
-	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(a.secret)
+	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, c).SignedString(a.secret)
 	if err != nil {
 		return "", fmt.Errorf("sign token: %w", err)
 	}
 	return signed, nil
 }
 
-func (a *JWTAuthenticator) ParseUserID(token string) (int64, error) {
+func (a *JWTAuthenticator) ParseIdentity(token string) (int64, int, error) {
 	parsed, err := jwt.ParseWithClaims(
 		token,
-		&jwt.RegisteredClaims{},
+		&claims{},
 		func(t *jwt.Token) (any, error) {
 			// Pinning the algorithm is what stops the classic attack of
 			// re-signing a token with "alg":"none", or with HMAC against a
@@ -87,17 +109,25 @@ func (a *JWTAuthenticator) ParseUserID(token string) (int64, error) {
 		jwt.WithExpirationRequired(),
 	)
 	if err != nil || !parsed.Valid {
-		return 0, ErrInvalidToken
+		return 0, 0, ErrInvalidToken
 	}
 
-	claims, ok := parsed.Claims.(*jwt.RegisteredClaims)
+	c, ok := parsed.Claims.(*claims)
 	if !ok {
-		return 0, ErrInvalidToken
+		return 0, 0, ErrInvalidToken
 	}
 
-	userID, err := strconv.ParseInt(claims.Subject, 10, 64)
+	userID, err := strconv.ParseInt(c.Subject, 10, 64)
 	if err != nil {
-		return 0, ErrInvalidToken
+		return 0, 0, ErrInvalidToken
 	}
-	return userID, nil
+
+	// A token signed before this field existed has no "ver" and decodes to
+	// zero, which is exactly the default the migration gave every account.
+	// Sessions open at deploy time therefore keep working.
+	//
+	// Token ký từ trước khi có field này thì không có "ver" và giải mã ra 0,
+	// đúng bằng giá trị mặc định mà migration đặt cho mọi tài khoản. Nhờ vậy
+	// các phiên đang mở lúc triển khai vẫn chạy tiếp.
+	return userID, c.Version, nil
 }

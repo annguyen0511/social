@@ -61,6 +61,24 @@ func (app *application) clearSessionCookie(w http.ResponseWriter) {
 	})
 }
 
+// startSession signs a token for the user as they are right now and puts it
+// in the cookie. It is the only place a session begins, so a caller that has
+// just bumped token_version cannot forget to re-stamp the cookie and lock the
+// person out of the page they are standing on.
+//
+// startSession ký một token theo đúng trạng thái hiện tại của user rồi đặt
+// vào cookie. Đây là nơi duy nhất một phiên bắt đầu, nên nơi gọi vừa tăng
+// token_version không thể quên đóng dấu lại cookie và khoá người dùng ra
+// khỏi chính trang họ đang đứng.
+func (app *application) startSession(w http.ResponseWriter, user *model.User) error {
+	token, err := app.authenticator.GenerateToken(user.ID, user.TokenVersion)
+	if err != nil {
+		return err
+	}
+	app.setSessionCookie(w, token)
+	return nil
+}
+
 // requireAuth rejects anyone without a valid session and puts the user it
 // belongs to in the request context.
 //
@@ -82,7 +100,7 @@ func (app *application) requireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		userID, err := app.authenticator.ParseUserID(cookie.Value)
+		userID, version, err := app.authenticator.ParseIdentity(cookie.Value)
 		if err != nil {
 			// The cookie is useless; clear it so the browser stops sending a
 			// token that will never be accepted again.
@@ -103,6 +121,21 @@ func (app *application) requireAuth(next http.Handler) http.Handler {
 			default:
 				app.internalServerError(w, r, err)
 			}
+			return
+		}
+
+		// The token names a version of this account's password. If the
+		// password has changed since the token was signed, the numbers no
+		// longer agree and the session is over — which is the whole point of
+		// changing a password after a cookie has been stolen.
+		//
+		// Token mang theo phiên bản mật khẩu của tài khoản này. Nếu mật khẩu
+		// đã đổi sau lúc token được ký thì hai con số không còn khớp và phiên
+		// kết thúc — đó chính là toàn bộ ý nghĩa của việc đổi mật khẩu sau
+		// khi bị trộm cookie.
+		if version != user.TokenVersion {
+			app.clearSessionCookie(w)
+			app.unauthorizedResponse(w, r, errors.New("the password changed, sign in again"))
 			return
 		}
 

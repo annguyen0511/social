@@ -44,6 +44,9 @@ type Storage struct {
 		Update(context.Context, *model.User) error
 		GetById(context.Context, int64) (*model.User, error)
 		GetByEmail(context.Context, string) (*model.User, error)
+		CreateResetToken(ctx context.Context, userID int64, token string, exp time.Duration) error
+		ResetPassword(ctx context.Context, token string, hashed []byte) error
+		ChangePassword(ctx context.Context, userID int64, hashed []byte) error
 		Search(ctx context.Context, viewerID int64, q string, page PaginationQuery) ([]model.UserSummary, int64, error)
 	}
 

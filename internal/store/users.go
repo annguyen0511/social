@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/annguyen0511/social/internal/model"
@@ -220,7 +221,7 @@ func (u *UserStore) userIDFromInvitation(ctx context.Context, tx *sql.Tx, token 
 func (u *UserStore) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	var user model.User
 	query := `
-	SELECT id, first_name, last_name, COALESCE(avatar_url, ''), username, email, password, is_active, created_at, updated_at
+	SELECT id, first_name, last_name, COALESCE(avatar_url, ''), username, email, password, is_active, token_version, created_at, updated_at
 	FROM users
 	WHERE email = $1
 	`
@@ -237,6 +238,7 @@ func (u *UserStore) GetByEmail(ctx context.Context, email string) (*model.User, 
 		&user.Email,
 		&user.Password.Hashed,
 		&user.IsActive,
+		&user.TokenVersion,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -369,7 +371,7 @@ func (u *UserStore) Update(ctx context.Context, user *model.User) error {
 func (u *UserStore) GetById(ctx context.Context, id int64) (*model.User, error) {
 	var user model.User
 	query := `
-	SELECT id, first_name, last_name, COALESCE(avatar_url, ''), username, email, password, is_active, created_at, updated_at
+	SELECT id, first_name, last_name, COALESCE(avatar_url, ''), username, email, password, is_active, token_version, created_at, updated_at
 	FROM users
 	WHERE id = $1
 	`
@@ -386,6 +388,7 @@ func (u *UserStore) GetById(ctx context.Context, id int64) (*model.User, error) 
 		&user.Email,
 		&user.Password.Hashed,
 		&user.IsActive,
+		&user.TokenVersion,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -398,4 +401,181 @@ func (u *UserStore) GetById(ctx context.Context, id int64) (*model.User, error) 
 	}
 
 	return &user, nil
+}
+
+// ResetCooldown is how long a reset link stays the only one that will be
+// issued for an account. Without it, anyone who knows an address could post
+// to the forgot-password endpoint in a loop and bury that person's inbox,
+// at the owner's expense in mail quota.
+//
+// ResetCooldown là khoảng thời gian mà một link đặt lại mật khẩu vẫn là cái
+// duy nhất được cấp cho một tài khoản. Thiếu nó thì ai biết địa chỉ email
+// cũng có thể gọi endpoint quên-mật-khẩu liên tục và chôn vùi hòm thư của
+// người đó, bằng hạn mức gửi thư của chính chủ.
+const ResetCooldown = 2 * time.Minute
+
+// ErrTooSoon reports that a reset link was asked for again before the
+// cooldown ran out. The handler answers the caller identically either way —
+// it exists so the handler knows not to send a second mail.
+//
+// ErrTooSoon báo rằng link đặt lại mật khẩu bị xin lại khi chưa hết thời gian
+// chờ. Handler vẫn trả lời phía gọi y hệt trong cả hai trường hợp — error này
+// tồn tại để handler biết là đừng gửi thư lần nữa.
+var ErrTooSoon = errors.New("a reset link was issued recently")
+
+// CreateResetToken records the SHA-256 hash of a password-reset token, never
+// the token itself, so a leaked database cannot be used to take over an
+// account.
+//
+// Only the newest link works: the insert clears this user's earlier rows
+// first. That matters because someone who asks twice will click whichever
+// mail they see first, and leaving both alive would mean a link they already
+// decided against is still a way in.
+//
+// CreateResetToken lưu bản băm SHA-256 của token đặt lại mật khẩu, không bao
+// giờ lưu token gốc, nên kẻ lấy được database cũng không chiếm được tài khoản.
+//
+// Chỉ link mới nhất còn dùng được: lệnh chèn xoá các dòng cũ của user này
+// trước. Điều đó quan trọng vì người xin hai lần sẽ bấm vào thư nào họ thấy
+// trước, mà để cả hai còn sống nghĩa là một link họ đã bỏ qua vẫn là một
+// đường vào.
+func (u *UserStore) CreateResetToken(ctx context.Context, userID int64, token string, exp time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	return withTx(ctx, u.db, func(tx *sql.Tx) error {
+		// Read the cooldown inside the transaction, so two requests arriving
+		// together cannot both find no recent row and both send a mail.
+		//
+		// Đọc mốc thời gian chờ ngay trong transaction, để hai request tới
+		// cùng lúc không thể cùng thấy "chưa có dòng nào gần đây" rồi cùng
+		// gửi thư.
+		var recent bool
+		err := tx.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM password_resets
+				WHERE user_id = $1 AND created_at > NOW() - $2::interval
+			)`, userID, fmt.Sprintf("%d seconds", int(ResetCooldown.Seconds()))).Scan(&recent)
+		if err != nil {
+			return err
+		}
+		if recent {
+			return ErrTooSoon
+		}
+
+		// Sweep everyone's expired rows while the transaction is open, so
+		// dead tokens cannot pile up without a scheduled job.
+		//
+		// Quét luôn dòng hết hạn của mọi user khi transaction đang mở, để
+		// token chết không tích tụ mà không cần job định kỳ.
+		cleanup := `DELETE FROM password_resets WHERE user_id = $1 OR expired_at <= NOW()`
+		if _, err := tx.ExecContext(ctx, cleanup, userID); err != nil {
+			return err
+		}
+
+		hash := sha256.Sum256([]byte(token))
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO password_resets (token, user_id, expired_at) VALUES ($1, $2, $3)`,
+			hash[:], userID, time.Now().Add(exp))
+		return err
+	})
+}
+
+// ResetPassword redeems a reset token and writes the new hash.
+//
+// Three statements, one transaction: set the password, bump token_version so
+// every session signed under the old number dies, and delete the token so it
+// works exactly once. Any of those landing without the others would leave the
+// account in a state nobody asked for — a password changed while the thief's
+// cookie still works, or a link that can be replayed.
+//
+// An unknown or expired token is reported as ErrNotFound, the same answer, so
+// the caller cannot tell one from the other.
+//
+// ResetPassword dùng một token đặt lại và ghi hash mới.
+//
+// Ba lệnh, một transaction: đặt mật khẩu, tăng token_version để mọi phiên ký
+// bằng số cũ chết hẳn, và xoá token để nó chỉ dùng được đúng một lần. Lệnh
+// nào xuống mà thiếu các lệnh kia đều để tài khoản ở trạng thái không ai mong
+// muốn — mật khẩu đã đổi mà cookie của kẻ trộm vẫn chạy, hoặc một link dùng
+// lại được.
+//
+// Token lạ hoặc hết hạn đều báo ErrNotFound, cùng một câu trả lời, nên phía
+// gọi không phân biệt được hai trường hợp.
+func (u *UserStore) ResetPassword(ctx context.Context, token string, hashed []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	return withTx(ctx, u.db, func(tx *sql.Tx) error {
+		hash := sha256.Sum256([]byte(token))
+
+		var userID int64
+		err := tx.QueryRowContext(ctx, `
+			SELECT user_id FROM password_resets
+			WHERE token = $1 AND expired_at > NOW()`, hash[:]).Scan(&userID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNotFound
+			}
+			return err
+		}
+
+		if err := setPassword(ctx, tx, userID, hashed); err != nil {
+			return err
+		}
+
+		// Every row for this user, not just the one redeemed: a second link
+		// asked for earlier must not survive the reset.
+		//
+		// Mọi dòng của user này, không chỉ dòng vừa dùng: một link thứ hai
+		// xin từ trước không được phép sống sót qua lần đặt lại này.
+		_, err = tx.ExecContext(ctx, `DELETE FROM password_resets WHERE user_id = $1`, userID)
+		return err
+	})
+}
+
+// ChangePassword writes a new hash for a signed-in user and ends every
+// session the account has open, this browser included. The caller is expected
+// to issue a fresh cookie afterwards, so the person who just typed their
+// current password is not thrown out of the page they are standing on.
+//
+// ChangePassword ghi hash mới cho một user đang đăng nhập và kết thúc mọi
+// phiên của tài khoản, kể cả trình duyệt này. Phía gọi phải cấp lại cookie
+// mới ngay sau đó, để người vừa gõ đúng mật khẩu hiện tại không bị văng khỏi
+// chính trang họ đang đứng.
+func (u *UserStore) ChangePassword(ctx context.Context, userID int64, hashed []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	return withTx(ctx, u.db, func(tx *sql.Tx) error {
+		return setPassword(ctx, tx, userID, hashed)
+	})
+}
+
+// setPassword is the one place the password and token_version move together.
+// Separating them would let a future caller change a password while leaving
+// old sessions alive, which is the bug this whole column exists to prevent.
+//
+// setPassword là nơi duy nhất mà mật khẩu và token_version đi cùng nhau. Tách
+// ra sẽ cho phép một nơi gọi nào đó sau này đổi mật khẩu mà vẫn để phiên cũ
+// sống, đúng cái lỗi mà cả cột này sinh ra để ngăn.
+func setPassword(ctx context.Context, tx *sql.Tx, userID int64, hashed []byte) error {
+	res, err := tx.ExecContext(ctx, `
+		UPDATE users
+		SET password = $1, token_version = token_version + 1, updated_at = NOW()
+		WHERE id = $2`, hashed, userID)
+	if err != nil {
+		return err
+	}
+
+	// No row means the account went away between the lookup and this write.
+	// Không có dòng nào nghĩa là tài khoản đã biến mất giữa lúc tra và lúc ghi.
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

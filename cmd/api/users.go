@@ -431,3 +431,81 @@ func (app *application) searchUsersHandler(w http.ResponseWriter, r *http.Reques
 
 	app.jsonResponse(w, r, http.StatusOK, newPagination(users, page, total), "users retrieved successfully")
 }
+
+type changePasswordRequest struct {
+	// CurrentPassword is what proves the person at the keyboard is the owner
+	// and not someone who sat down at an unlocked screen. A session cookie
+	// alone is not proof enough to hand over the account for good.
+	//
+	// CurrentPassword là thứ chứng minh người đang ngồi trước bàn phím là
+	// chủ tài khoản, chứ không phải ai đó vừa ngồi vào một màn hình chưa
+	// khoá. Chỉ một cookie phiên thì chưa đủ để trao hẳn tài khoản đi.
+	CurrentPassword string `json:"current_password" validate:"required" example:"password123"`
+	NewPassword     string `json:"new_password" validate:"required,min=8" example:"newpassword123"`
+} //@name ChangePasswordModel
+
+// changePasswordHandler godoc
+//
+//	@Summary		Change your own password
+//	@Description	Replaces the signed-in user's password after checking the current one. Every other session the account has open is ended, on every device; this browser is handed a fresh cookie so it stays signed in.
+//	@Tags			User
+//	@Accept			json
+//	@Produce		json
+//	@Param			payload	body		changePasswordRequest	true	"The current password, and the new one"
+//	@Success		200		{object}	MessageResponse
+//	@Failure		400		{object}	JSONError
+//	@Failure		401		{object}	JSONError	"The current password is wrong"
+//	@Failure		500		{object}	JSONError
+//	@Router			/users/me/password [put]
+func (app *application) changePasswordHandler(w http.ResponseWriter, r *http.Request) {
+	var req changePasswordRequest
+	if err := readJSON(w, r, &req); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	if err := Validate.Struct(req); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	user := authUser(r)
+
+	if err := user.Password.ComparePassword(req.CurrentPassword); err != nil {
+		app.unauthorizedResponse(w, r, errors.New("the current password is wrong"))
+		return
+	}
+
+	var next model.Password
+	if err := next.SetPassword(req.NewPassword); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	if err := app.store.User.ChangePassword(r.Context(), user.ID, next.Hashed); err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			app.notFoundResponse(w, r, err)
+		default:
+			app.internalServerError(w, r, err)
+		}
+		return
+	}
+
+	// The write just bumped token_version, so the cookie this request
+	// arrived with is already dead. Stamp a new one or the next click logs
+	// the user out of the browser they are using — punishing the one person
+	// who did everything right.
+	//
+	// Lệnh ghi vừa tăng token_version, nên cookie mà request này mang tới đã
+	// chết. Phải đóng dấu lại một cái mới, không thì cú bấm tiếp theo sẽ đá
+	// người dùng ra khỏi chính trình duyệt họ đang dùng — phạt đúng người đã
+	// làm mọi thứ chuẩn xác.
+	user.TokenVersion++
+	if err := app.startSession(w, user); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	app.jsonResponse(w, r, http.StatusOK, nil, "password changed")
+}

@@ -11,8 +11,20 @@ type User struct {
 	Email     string   `json:"email" db:"email"`
 	IsActive  bool     `json:"is_active" db:"is_active"`
 	Password  Password `json:"-"`
-	CreatedAt string   `json:"created_at" db:"created_at"`
-	UpdatedAt string   `json:"updated_at" db:"updated_at"`
+	// TokenVersion stamps every session token this account issues. Changing
+	// the password bumps it, which makes every token signed under the old
+	// number stop being accepted. It never leaves the server: a client has
+	// no use for it, and publishing it would only tell an attacker how many
+	// times the owner has had to lock them out.
+	//
+	// TokenVersion đóng dấu lên mọi token phiên mà tài khoản này phát hành.
+	// Đổi mật khẩu là tăng nó lên, khiến mọi token ký bằng số cũ không còn
+	// được chấp nhận. Nó không bao giờ ra khỏi server: client chẳng dùng vào
+	// việc gì, mà công khai nó chỉ cho kẻ tấn công biết chủ tài khoản đã phải
+	// khoá chúng ra bao nhiêu lần.
+	TokenVersion int    `json:"-" db:"token_version"`
+	CreatedAt    string `json:"created_at" db:"created_at"`
+	UpdatedAt    string `json:"updated_at" db:"updated_at"`
 } //@name UserViewModel
 
 // UserSummary is a user as a list of people shows them: the user, plus

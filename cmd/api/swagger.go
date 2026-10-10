@@ -10,7 +10,8 @@ import "github.com/annguyen0511/social/internal/model"
 
 type MessageResponse Response[any] //@name MessageResponse
 
-type UserRegisteredViewModelResponse Response[registeredUser] //@name UserRegisteredViewModelResponse
+type UserRegisteredViewModelResponse Response[registeredUser]       //@name UserRegisteredViewModelResponse
+type ForgotPasswordViewModelResponse Response[forgotPasswordResult] //@name ForgotPasswordViewModelResponse
 
 type PostViewModelResponse Response[model.Post]                   //@name PostViewModelResponse
 type UserViewModelResponse Response[model.User]                   //@name UserViewModelResponse
