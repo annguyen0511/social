@@ -138,6 +138,10 @@ type createPostRequest struct {
 //	@Param			tags		formData	string	false	"Tags, separated by commas"
 //	@Param			visibility	formData	string	false	"public or private; public when left out"	Enums(public, private)
 //	@Param			image		formData	file	false	"Optional picture, at most 5 MB"
+//	@Param			crop_x		formData	int		false	"Crop origin X, in the uploaded image's own pixels. Send all four crop fields or none."
+//	@Param			crop_y		formData	int		false	"Crop origin Y"
+//	@Param			crop_width	formData	int		false	"Crop width"
+//	@Param			crop_height	formData	int		false	"Crop height"
 //	@Success		201			{object}	PostViewModelResponse
 //	@Failure		400			{object}	JSONError
 //	@Failure		500			{object}	JSONError
@@ -188,7 +192,8 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 	image, err := app.readPostImage(r)
 	if err != nil {
 		switch {
-		case errors.Is(err, upload.ErrTooLarge), errors.Is(err, upload.ErrNotAnImage):
+		case errors.Is(err, upload.ErrTooLarge), errors.Is(err, upload.ErrNotAnImage),
+			errors.Is(err, upload.ErrBadCrop):
 			app.badRequestResponse(w, r, err)
 		default:
 			app.internalServerError(w, r, err)
@@ -259,7 +264,12 @@ func (app *application) readPostImage(r *http.Request) (*storedImage, error) {
 	}
 	defer file.Close()
 
-	data, width, height, err := upload.PostImage(file)
+	crop, err := readCropRect(r)
+	if err != nil {
+		return nil, err
+	}
+
+	data, width, height, err := upload.PostImage(file, crop)
 	if err != nil {
 		return nil, err
 	}
@@ -269,6 +279,51 @@ func (app *application) readPostImage(r *http.Request) (*storedImage, error) {
 		return nil, err
 	}
 	return &storedImage{name: name, width: width, height: height}, nil
+}
+
+// readCropRect reads the crop the browser measured, or nothing when the form
+// carried none.
+//
+// All four values or none: three of them describe no rectangle at all, and
+// silently treating that as "no crop" would quietly post the whole picture
+// when the client meant to send part of it. Better to say the form is wrong.
+//
+// readCropRect đọc vùng cắt mà trình duyệt đã đo, hoặc không gì cả khi form
+// không kèm theo.
+//
+// Hoặc đủ bốn giá trị, hoặc không có giá trị nào: ba cái thì không mô tả nổi
+// một hình chữ nhật, mà âm thầm coi đó là "không cắt" sẽ lặng lẽ đăng nguyên
+// tấm ảnh trong khi client có ý gửi một phần của nó. Thà báo là form sai.
+func readCropRect(r *http.Request) (*upload.CropRect, error) {
+	keys := []string{"crop_x", "crop_y", "crop_width", "crop_height"}
+
+	present := 0
+	for _, key := range keys {
+		if r.FormValue(key) != "" {
+			present++
+		}
+	}
+	if present == 0 {
+		return nil, nil
+	}
+	if present != len(keys) {
+		return nil, fmt.Errorf("%w: send all of crop_x, crop_y, crop_width and crop_height, or none", upload.ErrBadCrop)
+	}
+
+	values := make([]int, len(keys))
+	for i, key := range keys {
+		n, err := strconv.Atoi(r.FormValue(key))
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s must be a whole number", upload.ErrBadCrop, key)
+		}
+		values[i] = n
+	}
+
+	if values[2] <= 0 || values[3] <= 0 {
+		return nil, fmt.Errorf("%w: crop_width and crop_height must be positive", upload.ErrBadCrop)
+	}
+
+	return &upload.CropRect{X: values[0], Y: values[1], Width: values[2], Height: values[3]}, nil
 }
 
 // discardPostImage removes a file that never became part of a post, logging

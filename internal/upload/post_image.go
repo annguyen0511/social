@@ -10,6 +10,49 @@ import (
 	"golang.org/x/image/draw"
 )
 
+// CropRect is a rectangle in the uploaded image's own pixels, as the browser
+// measured it before anything was resized.
+//
+// It arrives from the client, so it is never trusted: clampTo below is what
+// keeps a wrong or hostile rectangle from reaching the decoder.
+//
+// CropRect là một hình chữ nhật tính theo đúng điểm ảnh của file được tải
+// lên, như trình duyệt đo được trước khi có bất kỳ phép thu nhỏ nào.
+//
+// Nó đến từ client nên không bao giờ được tin: clampTo bên dưới chính là thứ
+// giữ cho một hình chữ nhật sai hoặc cố tình phá hoại không tới được bộ giải
+// mã.
+type CropRect struct {
+	X      int
+	Y      int
+	Width  int
+	Height int
+}
+
+// clampTo converts the rectangle into the image's coordinate space and cuts
+// away anything outside it.
+//
+// Intersect is doing the real work: a client that sends a negative origin, a
+// width past the right edge, or numbers for a different image entirely gets
+// whatever part actually overlaps, and an empty rectangle when none does.
+//
+// clampTo chuyển hình chữ nhật sang hệ toạ độ của ảnh rồi cắt bỏ mọi phần
+// nằm ngoài.
+//
+// Intersect mới là thứ làm việc thật: một client gửi lên gốc toạ độ âm, chiều
+// rộng vượt quá mép phải, hay những con số của một tấm ảnh hoàn toàn khác, sẽ
+// nhận lại đúng phần thực sự giao nhau — và một hình chữ nhật rỗng khi không
+// có phần nào.
+func (c CropRect) clampTo(bounds image.Rectangle) image.Rectangle {
+	rect := image.Rect(
+		bounds.Min.X+c.X,
+		bounds.Min.Y+c.Y,
+		bounds.Min.X+c.X+c.Width,
+		bounds.Min.Y+c.Y+c.Height,
+	)
+	return rect.Intersect(bounds)
+}
+
 // PostSize is the longest side a stored post image is allowed to have.
 //
 // It is a bound, not a target: a picture smaller than this is left at its own
@@ -44,7 +87,7 @@ const PostSize = 1080
 // Nó giải mã rồi mã hoá lại vì đúng ba lý do như Avatar, và lý do đầu ở đây
 // còn quan trọng hơn: ảnh vừa chụp từ điện thoại mang theo toạ độ GPS nơi
 // chụp, mà một bài viết thì nhiều người xem hơn avatar nhiều.
-func PostImage(r io.Reader) (data []byte, width, height int, err error) {
+func PostImage(r io.Reader, crop *CropRect) (data []byte, width, height int, err error) {
 	raw, err := io.ReadAll(io.LimitReader(r, MaxBytes+1))
 	if err != nil {
 		return nil, 0, 0, err
@@ -69,7 +112,22 @@ func PostImage(r io.Reader) (data []byte, width, height int, err error) {
 		return nil, 0, 0, ErrNotAnImage
 	}
 
+	// Cropping happens before the resize, which is the whole reason the
+	// rectangle is sent instead of a pre-cropped file: the pixels that
+	// survive are scaled straight from the original, never from something
+	// already encoded once.
+	//
+	// Việc cắt diễn ra trước khi thu nhỏ, và đó chính là lý do gửi toạ độ
+	// thay vì gửi một file đã cắt sẵn: những điểm ảnh còn lại được thu nhỏ
+	// thẳng từ bản gốc, không phải từ một thứ đã qua một lần mã hoá.
 	bounds := src.Bounds()
+	if crop != nil {
+		bounds = crop.clampTo(bounds)
+		if bounds.Empty() {
+			return nil, 0, 0, fmt.Errorf("%w: it falls outside the image", ErrBadCrop)
+		}
+	}
+
 	width, height = fitWithin(bounds.Dx(), bounds.Dy(), PostSize)
 
 	out := image.NewRGBA(image.Rect(0, 0, width, height))

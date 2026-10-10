@@ -54,6 +54,7 @@ const (
 var (
 	ErrTooLarge   = errors.New("the image is too large")
 	ErrNotAnImage = errors.New("the file is not a JPEG, PNG or GIF image")
+	ErrBadCrop    = errors.New("the crop area is not valid")
 )
 
 // Avatar reads an uploaded file and returns a square JPEG of Size by Size.
