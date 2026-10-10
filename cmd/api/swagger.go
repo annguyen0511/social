@@ -24,10 +24,8 @@ type FeedPostViewModelPagination Pagination[model.FeedPost]       //@name FeedPo
 type FollowViewModelPagination Pagination[model.Follow]           //@name FollowViewModelPagination
 type UserViewModelPagination Pagination[model.User]               //@name UserViewModelPagination
 type UserSummaryViewModelPagination Pagination[model.UserSummary] //@name UserSummaryViewModelPagination
-type UserIDPagination Pagination[int64]                           //@name UserIDPagination
 
 type FeedPostViewModelPaginationResponse Response[FeedPostViewModelPagination]       //@name FeedPostViewModelPaginationResponse
 type FollowViewModelPaginationResponse Response[FollowViewModelPagination]           //@name FollowViewModelPaginationResponse
 type UserViewModelPaginationResponse Response[UserViewModelPagination]               //@name UserViewModelPaginationResponse
 type UserSummaryViewModelPaginationResponse Response[UserSummaryViewModelPagination] //@name UserSummaryViewModelPaginationResponse
-type UserIDPaginationResponse Response[UserIDPagination]                             //@name UserIDPaginationResponse

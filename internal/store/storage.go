@@ -83,7 +83,7 @@ type Storage struct {
 	CloseFriend interface {
 		Add(ctx context.Context, userID int64, friendID int64) error
 		Remove(ctx context.Context, userID int64, friendID int64) error
-		List(ctx context.Context, userID int64, page PaginationQuery) ([]int64, int64, error)
+		List(ctx context.Context, userID int64, page PaginationQuery) ([]model.User, int64, error)
 		IsCloseFriend(ctx context.Context, userID, friendID int64) (bool, error)
 	}
 }

@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"database/sql"
+
+	"github.com/annguyen0511/social/internal/model"
 )
 
 type CloseFriendStore struct {
@@ -55,20 +57,44 @@ func (s *CloseFriendStore) Remove(ctx context.Context, userID int64, friendID in
 	return nil
 }
 
-func (s *CloseFriendStore) List(ctx context.Context, userID int64, page PaginationQuery) ([]int64, int64, error) {
+// List returns the people userID has put on their close friends list.
+//
+// It returns the users themselves rather than their ids, for the same reason
+// the blocked list does: a bare id cannot be shown to anyone, and resolving
+// each one separately would be a query per row.
+//
+// No block filter is needed. Blocking severs close friend entries in both
+// directions inside the same transaction, so a blocked person cannot still be
+// on this list.
+//
+// List trả về những người mà userID đã đưa vào danh sách bạn thân.
+//
+// Nó trả về chính các user chứ không phải id, vì cùng lý do với danh sách
+// chặn: một id trần thì không hiển thị cho ai được, mà tra từng cái riêng lẻ
+// sẽ thành một truy vấn cho mỗi dòng.
+//
+// Không cần lọc block. Việc chặn đã cắt các mục bạn thân ở cả hai chiều
+// trong cùng một transaction, nên một người bị chặn không thể còn nằm trong
+// danh sách này.
+func (s *CloseFriendStore) List(ctx context.Context, userID int64, page PaginationQuery) ([]model.User, int64, error) {
 	countQuery := `SELECT COUNT(*) FROM close_friends WHERE user_id = $1`
 	pageQuery := `
-	SELECT friend_id
-	FROM close_friends
-	WHERE user_id = $1
-	ORDER BY created_at DESC, friend_id DESC
+	SELECT u.id, u.first_name, u.last_name, COALESCE(u.avatar_url, ''), u.username,
+	       u.email, u.is_active, u.created_at, u.updated_at
+	FROM close_friends cf
+	JOIN users u ON u.id = cf.friend_id
+	WHERE cf.user_id = $1
+	ORDER BY cf.created_at DESC, u.id DESC
 	LIMIT $2 OFFSET $3
 	`
 
-	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{userID}, func(rows *sql.Rows) (int64, error) {
-		var friendID int64
-		err := rows.Scan(&friendID)
-		return friendID, err
+	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{userID}, func(rows *sql.Rows) (model.User, error) {
+		var user model.User
+		err := rows.Scan(
+			&user.ID, &user.FirstName, &user.LastName, &user.AvatarURL, &user.UserName,
+			&user.Email, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+		)
+		return user, err
 	})
 }
 
