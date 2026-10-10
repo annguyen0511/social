@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Ban, Loader2, Pencil, ShieldOff, Star, StarOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { HttpError, del, get, isUnauthorized, put } from '../../api/client'
 import type { FriendshipStatus, User, UserProfile } from '../../api/types'
 import { formatCount } from '../../lib/format'
@@ -264,10 +265,6 @@ export function ProfilePage() {
       </header>
 
       <section className="mt-6">
-        <div className="mb-3 flex items-center justify-between gap-4">
-          <h2 className="font-semibold">Bài viết</h2>
-          {isSelf && <NewPostButton />}
-        </div>
         {/* queryKey mang userID để hai trang cá nhân khác nhau không dùng
             chung cache, nhưng vẫn bắt đầu bằng 'userPosts' để một bài mới
             đăng làm mới được mọi danh sách bằng một lần invalidate theo tiền
@@ -276,11 +273,47 @@ export function ProfilePage() {
             The queryKey carries the userID so two profiles do not share a
             cache, while still starting with 'userPosts' so a new post can
             refresh every list with one prefix invalidation. */}
-        <PostList
-          queryKey={['userPosts', userID]}
-          path={`/v1/users/${userID}/posts`}
-          empty={isSelf ? 'Bạn chưa đăng bài nào.' : 'Người này chưa đăng bài nào.'}
-        />
+        {isSelf ? (
+          // Tab "Đã lưu" chỉ có trên trang của chính mình, vì danh sách đã
+          // lưu là riêng tư và API cũng không có đường để xem của người khác.
+          //
+          // The "Đã lưu" tab exists only on your own page, because a saved
+          // list is private and the API offers no way to read someone else's.
+          <Tabs defaultValue="posts">
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <TabsList>
+                <TabsTrigger value="posts">Bài viết</TabsTrigger>
+                <TabsTrigger value="saved">Đã lưu</TabsTrigger>
+              </TabsList>
+              <NewPostButton />
+            </div>
+
+            <TabsContent value="posts">
+              <PostList
+                queryKey={['userPosts', userID]}
+                path={`/v1/users/${userID}/posts`}
+                empty="Bạn chưa đăng bài nào."
+              />
+            </TabsContent>
+
+            <TabsContent value="saved">
+              <PostList
+                queryKey={['saved']}
+                path="/v1/users/me/saved"
+                empty="Bạn chưa lưu bài nào. Bấm dấu trang trên một bài để cất nó lại đây."
+              />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          <>
+            <h2 className="mb-3 font-semibold">Bài viết</h2>
+            <PostList
+              queryKey={['userPosts', userID]}
+              path={`/v1/users/${userID}/posts`}
+              empty="Người này chưa đăng bài nào."
+            />
+          </>
+        )}
       </section>
     </main>
   )

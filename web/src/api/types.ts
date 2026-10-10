@@ -108,6 +108,7 @@ export type Post = {
   version: number
   like_count: number
   is_liked: boolean
+  is_saved: boolean
 }
 
 // Trạng thái thích sau khi bấm, do server trả về. Client không tự cộng trừ:
@@ -120,6 +121,15 @@ export type Post = {
 export type LikeState = {
   like_count: number
   is_liked: boolean
+}
+
+// Không có số đếm đi kèm: việc lưu bài là riêng tư, không ai được biết có bao
+// nhiêu người đã lưu một bài.
+//
+// No count beside it: saving is private, and how many people saved a post is
+// nobody's business.
+export type SaveState = {
+  is_saved: boolean
 }
 
 export type PostCreate = {
@@ -144,6 +154,7 @@ export type FeedPost = {
   comment_count: number
   like_count: number
   is_liked: boolean
+  is_saved: boolean
   created_at: string
   updated_at: string
   version: number

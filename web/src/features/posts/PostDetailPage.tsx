@@ -10,6 +10,7 @@ import { formatDateTime } from '../../lib/format'
 import { UserAvatar } from '../users/UserAvatar'
 import { CommentForm } from './CommentForm'
 import { LikeButton } from './LikeButton'
+import { SaveButton } from './SaveButton'
 import { PostActions } from './PostActions'
 
 /**
@@ -151,8 +152,11 @@ export function PostDetailPage() {
             </ul>
           )}
 
-          <div className="mt-4 -ml-2">
+          <div className="mt-4 -ml-2 flex items-center">
             <LikeButton postID={data.id} likeCount={data.like_count} isLiked={data.is_liked} />
+            <div className="ml-auto">
+              <SaveButton postID={data.id} isSaved={data.is_saved} />
+            </div>
           </div>
         </CardContent>
       </Card>

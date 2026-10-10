@@ -6,6 +6,7 @@ import type { FeedPost } from '../../api/types'
 import { formatDateTime } from '../../lib/format'
 import { UserAvatar } from '../users/UserAvatar'
 import { LikeButton } from './LikeButton'
+import { SaveButton } from './SaveButton'
 
 /**
  * One post as it appears in a list.
@@ -65,6 +66,15 @@ export function PostCard({ post }: { post: FeedPost }) {
               {post.comment_count}
             </Link>
           </Button>
+
+          {/* Nút lưu đẩy sang mép phải: nó là hành động riêng tư, tách khỏi
+              hai con số công khai bên trái.
+
+              The save button sits at the far right: it is a private action,
+              set apart from the two public counts on the left. */}
+          <div className="ml-auto">
+            <SaveButton postID={post.id} isSaved={post.is_saved} />
+          </div>
         </div>
       </CardContent>
     </Card>
