@@ -1,4 +1,6 @@
-import { Globe, Lock } from 'lucide-react'
+import { useEffect, useMemo, useRef } from 'react'
+import { Globe, Lock, Trash, Upload } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,7 +16,14 @@ import type { Visibility } from '../../api/types'
 export const MAX_TITLE = 100
 export const MAX_CONTENT = 1000
 
-export type PostFields = { title: string; content: string; tags: string; visibility: Visibility }
+export type PostFields = {
+  title: string
+  content: string
+  tags: string
+  visibility: Visibility
+  image: File | null
+  imageError: string | null
+}
 
 export const emptyPost: PostFields = {
   title: '',
@@ -29,6 +38,8 @@ export const emptyPost: PostFields = {
   // means it leaks. People expect what they write to be read, though, so the
   // default has to be what they expect, with the other option right beside it.
   visibility: 'public',
+  image: null,
+  imageError: null,
 }
 
 const options: { value: Visibility; label: string; hint: string; icon: typeof Globe }[] = [
@@ -57,17 +68,63 @@ export const isValidPost = (fields: PostFields): boolean =>
   fields.content.trim().length > 0 &&
   fields.content.trim().length <= MAX_CONTENT
 
+// Mirrors upload.MaxBytes and the formats image.Decode is set up to read.
+// Checking here only saves a doomed round trip; the server re-encodes
+// whatever arrives and stays the authority.
+//
+// Khớp với upload.MaxBytes và các định dạng mà image.Decode được cài để đọc.
+// Kiểm ở đây chỉ để đỡ một lượt gọi mạng chắc chắn thất bại; server mã hoá
+// lại mọi thứ nhận được và vẫn là nơi quyết định.
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+const ACCEPT_IMAGE = 'image/jpeg,image/png,image/gif'
+
 export function PostForm({
   id,
   fields,
   onChange,
   onSubmit,
+  // Sửa bài chưa đổi được ảnh ở phiên bản này, nên ô chọn ảnh bị ẩn hẳn thay
+  // vì hiện ra rồi im lặng không có tác dụng.
+  //
+  // This version cannot change a post's picture after the fact, so the
+  // picker is hidden outright rather than shown and silently ignored.
+  allowImage = true,
 }: {
   id: string
   fields: PostFields
   onChange: (next: PostFields) => void
   onSubmit: () => void
+  allowImage?: boolean
 }) {
+  const fileInput = useRef<HTMLInputElement>(null)
+
+  // A blob: URL is a reference the browser holds until it is revoked, so the
+  // old one has to go whenever the file changes or the form unmounts.
+  //
+  // blob: URL là một tham chiếu trình duyệt giữ lại cho tới khi bị thu hồi,
+  // nên phải bỏ cái cũ mỗi lần đổi file hoặc khi form rời màn hình.
+  const preview = useMemo(
+    () => (fields.image ? URL.createObjectURL(fields.image) : null),
+    [fields.image],
+  )
+  useEffect(() => {
+    if (!preview) return
+    return () => URL.revokeObjectURL(preview)
+  }, [preview])
+
+  const pick = (chosen: File | undefined) => {
+    if (!chosen) return
+    if (!chosen.type.startsWith('image/')) {
+      onChange({ ...fields, image: null, imageError: 'Hãy chọn một file ảnh.' })
+      return
+    }
+    if (chosen.size > MAX_IMAGE_BYTES) {
+      onChange({ ...fields, image: null, imageError: 'Ảnh phải nhỏ hơn 5 MB.' })
+      return
+    }
+    onChange({ ...fields, image: chosen, imageError: null })
+  }
+
   return (
     <form
       id={id}
@@ -102,6 +159,66 @@ export function PostForm({
           onChange={(event) => onChange({ ...fields, content: event.target.value })}
         />
       </div>
+
+      {allowImage && (
+        <div className="space-y-1.5">
+          <Label>Ảnh</Label>
+
+          {preview && (
+            <img
+              src={preview}
+              alt="Ảnh sẽ đăng kèm bài"
+              className="max-h-64 w-full rounded-lg border border-border object-contain"
+            />
+          )}
+
+          <div className="flex gap-2">
+            <input
+              ref={fileInput}
+              type="file"
+              accept={ACCEPT_IMAGE}
+              className="sr-only"
+              onChange={(event) => pick(event.target.files?.[0])}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInput.current?.click()}
+            >
+              <Upload />
+              {fields.image ? 'Đổi ảnh' : 'Chọn ảnh'}
+            </Button>
+
+            {fields.image && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  onChange({ ...fields, image: null, imageError: null })
+                  // Chọn lại đúng file vừa bỏ sẽ không bắn onChange nếu giá
+                  // trị của input còn nguyên.
+                  //
+                  // Picking the very same file again fires no onChange unless
+                  // the input's value is cleared.
+                  if (fileInput.current) fileInput.current.value = ''
+                }}
+              >
+                <Trash />
+                Bỏ ảnh
+              </Button>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Tuỳ chọn. JPEG, PNG hoặc GIF, tối đa 5 MB. Ảnh theo chế độ hiển thị của bài.
+          </p>
+          {fields.imageError && (
+            <p className="text-sm text-destructive">{fields.imageError}</p>
+          )}
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <Label>Ai xem được</Label>

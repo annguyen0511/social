@@ -7,6 +7,7 @@ import { formatDateTime } from '../../lib/format'
 import { UserAvatar } from '../users/UserAvatar'
 import { VisibilityBadge } from './VisibilityBadge'
 import { LikeButton } from './LikeButton'
+import { PostImageView } from './PostImageView'
 import { RepostButton } from './RepostButton'
 import { SaveButton } from './SaveButton'
 
@@ -43,6 +44,7 @@ export function PostCard({ post }: { post: FeedPost }) {
         <Link to={`/posts/${post.id}`} className="block">
           <h2 className="font-semibold hover:underline">{post.title}</h2>
           <p className="mt-1 line-clamp-3 text-foreground/80">{post.content}</p>
+          {post.image && <PostImageView image={post.image} alt={post.title} />}
         </Link>
 
         {post.tags && post.tags.length > 0 && (

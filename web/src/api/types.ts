@@ -102,6 +102,7 @@ export type Post = {
   user_id: number
   tags: string[] | null
   visibility: Visibility
+  image: PostImage | null
   user: User
   comments: Comment[] | null
   created_at: string
@@ -150,6 +151,17 @@ export type RepostState = {
 // friend. It does not mean "only me".
 export type Visibility = 'public' | 'private'
 
+// width/height đi kèm để trình duyệt chừa đúng chỗ trước khi ảnh tải xong.
+// Thiếu chúng thì feed nhảy giật mỗi lần một tấm ảnh hiện ra.
+//
+// width/height travel with it so the browser can reserve the right space
+// before the picture arrives. Without them the feed jumps as each one lands.
+export type PostImage = {
+  url: string
+  width: number
+  height: number
+}
+
 export type PostCreate = {
   title: string
   content: string
@@ -171,6 +183,7 @@ export type FeedPost = {
   user_id: number
   tags: string[] | null
   visibility: Visibility
+  image: PostImage | null
   user: User
   comment_count: number
   like_count: number

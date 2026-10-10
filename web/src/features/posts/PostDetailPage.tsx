@@ -13,6 +13,7 @@ import { LikeButton } from './LikeButton'
 import { RepostButton } from './RepostButton'
 import { SaveButton } from './SaveButton'
 import { PostActions } from './PostActions'
+import { PostImageView } from './PostImageView'
 import { VisibilityBadge } from './VisibilityBadge'
 
 /**
@@ -145,6 +146,8 @@ export function PostDetailPage() {
 
           <h1 className="text-xl font-semibold">{data.title}</h1>
           <p className="mt-2 whitespace-pre-wrap text-foreground/80">{data.content}</p>
+
+          {data.image && <PostImageView image={data.image} alt={data.title} />}
 
           {data.tags && data.tags.length > 0 && (
             <ul className="mt-4 flex flex-wrap gap-1.5">

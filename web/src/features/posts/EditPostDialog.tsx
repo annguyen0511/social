@@ -19,6 +19,8 @@ const toFields = (post: Post): PostFields => ({
   content: post.content,
   tags: (post.tags ?? []).join(', '),
   visibility: post.visibility,
+  image: null,
+  imageError: null,
 })
 
 export function EditPostDialog({
@@ -83,10 +85,18 @@ export function EditPostDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Sửa bài viết</DialogTitle>
-          <DialogDescription>Thay đổi sẽ hiện ngay với mọi người.</DialogDescription>
+          <DialogDescription>
+            Thay đổi sẽ hiện ngay với mọi người. Ảnh của bài chưa đổi được.
+          </DialogDescription>
         </DialogHeader>
 
-        <PostForm id="edit-post" fields={fields} onChange={setFields} onSubmit={() => mutation.mutate()} />
+        <PostForm
+          id="edit-post"
+          fields={fields}
+          onChange={setFields}
+          onSubmit={() => mutation.mutate()}
+          allowImage={false}
+        />
 
         {errorText && <p className="text-sm text-destructive">{errorText}</p>}
 

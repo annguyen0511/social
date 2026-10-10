@@ -11,9 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { post } from '../../api/client'
-import type { Post, PostCreate } from '../../api/types'
-import { emptyPost, isValidPost, parseTags, PostForm, type PostFields } from './PostForm'
+import { postForm } from '../../api/client'
+import type { Post } from '../../api/types'
+import { emptyPost, isValidPost, PostForm, type PostFields } from './PostForm'
 
 export function CreatePostDialog({
   open,
@@ -32,13 +32,20 @@ export function CreatePostDialog({
 
   const mutation = useMutation({
     mutationFn: () => {
-      const body: PostCreate = {
-        title: fields.title.trim(),
-        content: fields.content.trim(),
-        tags: parseTags(fields.tags),
-        visibility: fields.visibility,
-      }
-      return post<Post>('/v1/posts', body)
+      // A form rather than JSON, because the picture travels with the post.
+      // The server sends back 400 and creates nothing if the image is not
+      // one, so there is no half-made post to clean up.
+      //
+      // Dùng form chứ không phải JSON, vì tấm ảnh đi cùng bài viết. Server
+      // trả 400 và không tạo gì nếu file không phải ảnh, nên không có bài nào
+      // dở dang phải dọn.
+      const body = new FormData()
+      body.append('title', fields.title.trim())
+      body.append('content', fields.content.trim())
+      body.append('tags', fields.tags)
+      body.append('visibility', fields.visibility)
+      if (fields.image) body.append('image', fields.image)
+      return postForm<Post>('/v1/posts', body)
     },
     onSuccess: (created) => {
       // A new post belongs in the author's own feed and on their profile, and
