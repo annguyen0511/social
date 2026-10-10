@@ -19,9 +19,13 @@ const toFields = (post: Post): PostFields => ({
   content: post.content,
   tags: (post.tags ?? []).join(', '),
   visibility: post.visibility,
-  image: null,
+  // Sửa ảnh của một bài đã đăng thì chưa làm được, nên bản nháp bắt đầu
+  // bằng danh sách rỗng và biểu mẫu này không vẽ ô chọn ảnh.
+  //
+  // Changing the pictures on a posted post is not supported yet, so the
+  // draft starts with an empty list and this form draws no picker.
+  images: [],
   imageError: null,
-  crop: null,
 })
 
 export function EditPostDialog({

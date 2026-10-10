@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import Cropper, { type Area, type MediaSize } from 'react-easy-crop'
+import Cropper, { type Area } from 'react-easy-crop'
 import { Slider } from '@/components/ui/slider'
 import { cn } from 'cn'
+import type { ImageDraft } from './PostForm'
 
 /**
  * The crop frame over a chosen picture.
@@ -15,6 +15,11 @@ import { cn } from 'cn'
  * server cuts from it, so the picture is encoded exactly once instead of
  * once by the browser and again by the server.
  *
+ * Nothing is held here. Every piece of state lives on the draft and comes
+ * back down as props, because a post can carry several pictures now and
+ * flipping between two of them must not disturb either frame — state kept
+ * inside would reset on each remount.
+ *
  * Khung cắt đặt lên tấm ảnh đã chọn.
  *
  * Khung đứng yên còn ảnh di chuyển phía sau, vừa đúng thứ người ta mong đợi
@@ -25,13 +30,20 @@ import { cn } from 'cn'
  * Chỉ hình chữ nhật đó được gửi đi. File gốc lên nguyên vẹn và server cắt từ
  * nó, nên tấm ảnh chỉ bị mã hoá đúng một lần thay vì một lần ở trình duyệt
  * rồi một lần nữa ở server.
+ *
+ * Component này không giữ gì cả. Mọi trạng thái nằm trên bản nháp rồi truyền
+ * xuống làm props, vì giờ một bài có thể mang nhiều ảnh và việc lật qua lại
+ * giữa hai tấm không được làm xê dịch khung nào — trạng thái giữ bên trong
+ * sẽ reset mỗi lần component được dựng lại.
  */
 
-// null nghĩa là giữ nguyên tỉ lệ của ảnh gốc, và chỉ biết được sau khi ảnh
-// tải xong — nên nó phải là một lựa chọn riêng chứ không phải một con số.
+// null nghĩa là giữ nguyên tỉ lệ của ảnh gốc. Tỉ lệ thật đo được từ kích
+// thước đã đọc lúc chọn file, nên nó vẫn là một lựa chọn riêng chứ không
+// phải một con số.
 //
-// null means keep the picture's own ratio, which is only knowable once it has
-// loaded — so it has to be its own option rather than a number.
+// null means keep the picture's own ratio. The real ratio comes from the
+// size read when the file was picked, so this stays its own option rather
+// than a number.
 const ratios: { label: string; value: number | null }[] = [
   { label: 'Gốc', value: null },
   { label: '1:1', value: 1 },
@@ -41,42 +53,39 @@ const ratios: { label: string; value: number | null }[] = [
 
 export function ImageCropper({
   src,
-  onCropped,
+  draft,
+  onChange,
 }: {
   src: string
-  onCropped: (area: Area) => void
+  draft: ImageDraft
+  onChange: (next: ImageDraft) => void
 }) {
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [ratio, setRatio] = useState<number | null>(null)
-  const [naturalRatio, setNaturalRatio] = useState(1)
+  const { view, size } = draft
+  const naturalRatio = size.width / size.height
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="relative min-h-0 flex-1 bg-black">
         <Cropper
           image={src}
-          crop={crop}
-          zoom={zoom}
+          crop={{ x: view.x, y: view.y }}
+          zoom={view.zoom}
           // Cropper cần một con số, nên "Gốc" được dịch thành tỉ lệ thật của
-          // ảnh — đo được khi nó tải xong.
+          // ảnh.
           //
           // Cropper wants a number, so "Gốc" resolves to the picture's real
-          // ratio, measured once it has loaded.
-          aspect={ratio ?? naturalRatio}
+          // ratio.
+          aspect={view.ratio ?? naturalRatio}
           minZoom={1}
           maxZoom={4}
-          onCropChange={setCrop}
-          onZoomChange={setZoom}
-          onMediaLoaded={(size: MediaSize) =>
-            setNaturalRatio(size.naturalWidth / size.naturalHeight)
-          }
+          onCropChange={({ x, y }) => onChange({ ...draft, view: { ...view, x, y } })}
+          onZoomChange={(zoom) => onChange({ ...draft, view: { ...view, zoom } })}
           // croppedAreaPixels is already in the original file's coordinates,
           // which is exactly what the server's CropRect expects.
           //
           // croppedAreaPixels vốn đã tính theo toạ độ của file gốc, đúng thứ
           // CropRect phía server đang chờ.
-          onCropComplete={(_area, pixels) => onCropped(pixels)}
+          onCropComplete={(_area: Area, pixels: Area) => onChange({ ...draft, crop: pixels })}
         />
       </div>
 
@@ -86,11 +95,11 @@ export function ImageCropper({
             <button
               key={label}
               type="button"
-              aria-pressed={ratio === value}
-              onClick={() => setRatio(value)}
+              aria-pressed={view.ratio === value}
+              onClick={() => onChange({ ...draft, view: { ...view, ratio: value } })}
               className={cn(
                 'rounded-md px-2.5 py-1 text-xs transition-colors',
-                ratio === value ? 'bg-foreground text-background' : 'hover:bg-muted',
+                view.ratio === value ? 'bg-foreground text-background' : 'hover:bg-muted',
               )}
             >
               {label}
@@ -101,11 +110,11 @@ export function ImageCropper({
         <label className="flex min-w-40 flex-1 items-center gap-2 text-xs text-muted-foreground">
           Thu phóng
           <Slider
-            value={[zoom]}
+            value={[view.zoom]}
             min={1}
             max={4}
             step={0.01}
-            onValueChange={([next]) => setZoom(next)}
+            onValueChange={([zoom]) => onChange({ ...draft, view: { ...view, zoom } })}
             aria-label="Thu phóng"
             className="flex-1"
           />

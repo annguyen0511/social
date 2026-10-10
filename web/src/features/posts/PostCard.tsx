@@ -7,7 +7,7 @@ import { formatDateTime } from '../../lib/format'
 import { UserAvatar } from '../users/UserAvatar'
 import { VisibilityBadge } from './VisibilityBadge'
 import { LikeButton } from './LikeButton'
-import { PostImageView } from './PostImageView'
+import { PostGallery } from './PostGallery'
 import { RepostButton } from './RepostButton'
 import { SaveButton } from './SaveButton'
 
@@ -44,8 +44,17 @@ export function PostCard({ post }: { post: FeedPost }) {
         <Link to={`/posts/${post.id}`} className="block">
           <h2 className="font-semibold hover:underline">{post.title}</h2>
           <p className="mt-1 line-clamp-3 text-foreground/80">{post.content}</p>
-          {post.image && <PostImageView image={post.image} alt={post.title} />}
         </Link>
+
+        {/* Ngoài thẻ Link, vì dải nhiều ảnh có mũi tên và điểm tròn bên
+            trong — những nút nằm trong một đường dẫn thì mỗi cú bấm vừa
+            chuyển ảnh vừa mở bài. PostGallery tự dẫn đi với bài một ảnh.
+
+            Outside the Link, because a strip of several carries arrows and
+            dots — buttons inside an anchor would both change picture and
+            open the post on every click. PostGallery links on its own for a
+            single-image post. */}
+        <PostGallery images={post.images} alt={post.title} to={`/posts/${post.id}`} />
 
         {post.tags && post.tags.length > 0 && (
           <ul className="mt-3 flex flex-wrap gap-1.5">

@@ -4,11 +4,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { cn } from 'cn'
 import { postForm } from '../../api/client'
 import type { Post } from '../../api/types'
 import { CroppedPreview } from './CroppedPreview'
-import { ImagePicker, validateImage } from './ImagePicker'
-import { emptyPost, isValidPost, PostForm, type PostFields } from './PostForm'
+import { ImagePicker } from './ImagePicker'
+import { buildPostBody, emptyPost, isValidPost, PostForm, type PostFields } from './PostForm'
 
 type Step = 'image' | 'details'
 
@@ -48,47 +49,47 @@ export function CreatePostDialog({
     if (!open) return
     setStep('image')
     setFields(emptyPost)
+    setShown(0)
   }, [open])
 
-  const preview = useMemo(
-    () => (fields.image ? URL.createObjectURL(fields.image) : null),
-    [fields.image],
+  // Một blob: URL cho mỗi ảnh, thu hồi cả bảng khi danh sách đổi. Bước hai
+  // chỉ xem chứ không sửa, nên nó không cần biết gì về khung cắt ngoài hình
+  // chữ nhật đã lưu trên bản nháp.
+  //
+  // One blob: URL per picture, the whole table revoked when the list
+  // changes. Step two only looks, never edits, so it needs to know nothing
+  // about the crop frame beyond the rectangle stored on the draft.
+  const previews = useMemo(
+    () => fields.images.map((image) => ({ id: image.id, url: URL.createObjectURL(image.file) })),
+    [fields.images],
   )
-  useEffect(() => {
-    if (!preview) return
-    return () => URL.revokeObjectURL(preview)
-  }, [preview])
+  useEffect(
+    () => () => previews.forEach(({ url }) => URL.revokeObjectURL(url)),
+    [previews],
+  )
+
+  const [shown, setShown] = useState(0)
+
+  // Bỏ một ảnh ở bước một rồi quay lại có thể để lại chỉ số trỏ ra ngoài
+  // danh sách; kẹp lại lúc render chứ không trong effect, để không có một
+  // nhịp nào hiện ra khoảng trắng.
+  //
+  // Removing a picture in step one and coming back can leave the index
+  // pointing past the list; clamped during render rather than in an effect,
+  // so there is no frame in which a blank shows.
+  const current = previews[Math.min(shown, previews.length - 1)] ?? null
+  const currentCrop = fields.images[Math.min(shown, fields.images.length - 1)]?.crop ?? null
 
   const mutation = useMutation({
     mutationFn: () => {
-      // A form rather than JSON, because the picture travels with the post.
-      // The server sends back 400 and creates nothing if the image is not
-      // one, so there is no half-made post to clean up.
+      // A form rather than JSON, because the pictures travel with the post.
+      // The server sends back 400 and creates nothing if any of the files is
+      // not an image, so there is no half-made post to clean up.
       //
-      // Dùng form chứ không phải JSON, vì tấm ảnh đi cùng bài viết. Server
-      // trả 400 và không tạo gì nếu file không phải ảnh, nên không có bài nào
-      // dở dang phải dọn.
-      const body = new FormData()
-      body.append('title', fields.title.trim())
-      body.append('content', fields.content.trim())
-      body.append('tags', fields.tags)
-      body.append('visibility', fields.visibility)
-      if (fields.image) {
-        body.append('image', fields.image)
-
-        // Cả bốn hoặc không cái nào — server từ chối một bộ thiếu, vì ba con
-        // số thì không mô tả nổi một hình chữ nhật.
-        //
-        // All four or none — the server rejects a partial set, because three
-        // numbers describe no rectangle at all.
-        if (fields.crop) {
-          body.append('crop_x', String(Math.round(fields.crop.x)))
-          body.append('crop_y', String(Math.round(fields.crop.y)))
-          body.append('crop_width', String(Math.round(fields.crop.width)))
-          body.append('crop_height', String(Math.round(fields.crop.height)))
-        }
-      }
-      return postForm<Post>('/v1/posts', body)
+      // Dùng form chứ không phải JSON, vì những tấm ảnh đi cùng bài viết.
+      // Server trả 400 và không tạo gì nếu có file nào không phải ảnh, nên
+      // không có bài nào dở dang phải dọn.
+      return postForm<Post>('/v1/posts', buildPostBody(fields))
     },
     onSuccess: (created) => {
       // A new post belongs in the author's own feed and on their profile, and
@@ -159,7 +160,7 @@ export function CreatePostDialog({
               // Skipping the picture is allowed, but through the link inside
               // the screen rather than this button — it only lights up once
               // there is an image, so "Tiếp" always means "done picking".
-              disabled={!fields.image}
+              disabled={fields.images.length === 0}
               onClick={() => setStep('details')}
             >
               Tiếp
@@ -180,17 +181,13 @@ export function CreatePostDialog({
         <div className="min-h-0 overflow-hidden">
           {onImage ? (
             <ImagePicker
-              image={fields.image}
+              images={fields.images}
               error={fields.imageError}
-              onPick={(file) => {
-                const error = validateImage(file)
-                setFields({ ...fields, image: error ? null : file, imageError: error, crop: null })
-              }}
-              onClear={() =>
-                setFields({ ...fields, image: null, imageError: null, crop: null })
+              onChange={(update) =>
+                setFields((current) => ({ ...current, images: update(current.images) }))
               }
+              onError={(imageError) => setFields((current) => ({ ...current, imageError }))}
               onSkip={() => setStep('details')}
-              onCrop={(crop) => setFields((current) => ({ ...current, crop }))}
             />
           ) : (
             <div className="flex h-full min-h-0">
@@ -201,18 +198,47 @@ export function CreatePostDialog({
                   The picture stays on the left through step two, so whoever
                   is writing can see what they are writing about. With no
                   image the column disappears and the form takes the width. */}
-              {preview && (
-                <div className="hidden min-h-0 w-1/2 shrink-0 place-items-center bg-muted/40 p-4 sm:grid">
+              {current && (
+                <div className="hidden min-h-0 w-1/2 shrink-0 grid-rows-[1fr_auto] bg-muted/40 p-4 sm:grid">
                   {/* Phần đã cắt, không phải file gốc: đây là thứ sẽ được
                       đăng, nên xem trước phải khớp với nó.
 
                       The cropped region, not the original file: this is what
                       gets posted, so the preview has to match it. */}
-                  <CroppedPreview
-                    src={preview}
-                    crop={fields.crop}
-                    className="max-h-full max-w-full object-contain"
-                  />
+                  <div className="grid min-h-0 place-items-center">
+                    <CroppedPreview
+                      key={current.id}
+                      src={current.url}
+                      crop={currentCrop}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
+
+                  {/* Dải ảnh chỉ hiện khi có nhiều hơn một tấm: với một ảnh
+                      thì nó chẳng nói thêm điều gì.
+
+                      The strip only appears past one picture: with a single
+                      image it says nothing the preview has not already
+                      said. */}
+                  {previews.length > 1 && (
+                    <div className="mt-3 flex items-center justify-center gap-2">
+                      {previews.map(({ id, url }, index) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setShown(index)}
+                          aria-current={id === current.id}
+                          aria-label={`Xem ảnh ${index + 1}`}
+                          className={cn(
+                            'size-10 overflow-hidden rounded border-2 transition-colors',
+                            id === current.id ? 'border-foreground' : 'border-transparent',
+                          )}
+                        >
+                          <img src={url} alt="" className="size-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

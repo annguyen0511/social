@@ -102,7 +102,12 @@ export type Post = {
   user_id: number
   tags: string[] | null
   visibility: Visibility
-  image: PostImage | null
+  // Luôn là một mảng, kể cả khi rỗng — server trả [] chứ không bao giờ trả
+  // null, nên mọi nơi dùng đều duyệt được mà không phải kiểm trước.
+  //
+  // Always an array, empty included — the server returns [] and never null,
+  // so every caller can map over it without checking first.
+  images: PostImage[]
   user: User
   comments: Comment[] | null
   created_at: string
@@ -183,7 +188,12 @@ export type FeedPost = {
   user_id: number
   tags: string[] | null
   visibility: Visibility
-  image: PostImage | null
+  // Luôn là một mảng, kể cả khi rỗng — server trả [] chứ không bao giờ trả
+  // null, nên mọi nơi dùng đều duyệt được mà không phải kiểm trước.
+  //
+  // Always an array, empty included — the server returns [] and never null,
+  // so every caller can map over it without checking first.
+  images: PostImage[]
   user: User
   comment_count: number
   like_count: number
