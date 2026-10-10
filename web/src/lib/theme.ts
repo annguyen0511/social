@@ -46,6 +46,27 @@ export const prefersDark = (): boolean =>
   window.matchMedia('(prefers-color-scheme: dark)').matches
 
 /**
+ * Subscribes to the operating system switching between light and dark.
+ *
+ * Paired with useSyncExternalStore so React treats the preference as what it
+ * is: state that lives outside React and changes on its own. Reading
+ * matchMedia straight from a render body instead would leave the icon showing
+ * the old theme until something unrelated caused a re-render.
+ *
+ * Đăng ký theo dõi việc hệ điều hành chuyển giữa sáng và tối.
+ *
+ * Dùng kèm useSyncExternalStore để React coi lựa chọn này đúng bản chất của
+ * nó: một trạng thái nằm ngoài React và tự thay đổi. Đọc thẳng matchMedia
+ * trong thân render sẽ khiến icon còn hiện giao diện cũ cho tới khi có việc
+ * gì đó không liên quan làm component render lại.
+ */
+export function subscribeToSystemTheme(onChange: () => void): () => void {
+  const media = window.matchMedia('(prefers-color-scheme: dark)')
+  media.addEventListener('change', onChange)
+  return () => media.removeEventListener('change', onChange)
+}
+
+/**
  * Puts the theme on the document.
  *
  * The class goes on <html> rather than <body> because the CSS variables are

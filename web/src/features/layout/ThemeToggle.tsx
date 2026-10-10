@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Check, Monitor, Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -8,7 +8,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from 'cn'
-import { applyTheme, prefersDark, readTheme, storeTheme, type Theme } from '../../lib/theme'
+import {
+  applyTheme,
+  prefersDark,
+  readTheme,
+  storeTheme,
+  subscribeToSystemTheme,
+  type Theme,
+} from '../../lib/theme'
 
 const options: { value: Theme; label: string; icon: typeof Sun }[] = [
   { value: 'light', label: 'Sáng', icon: Sun },
@@ -39,25 +46,23 @@ export function ThemeToggle({
 }) {
   const [theme, setTheme] = useState<Theme>(readTheme)
 
+  // The third argument is the value when there is no window at all. It keeps
+  // this component renderable outside a browser, which is what a render test
+  // does.
+  //
+  // Tham số thứ ba là giá trị khi hoàn toàn không có window. Nó giữ cho
+  // component này render được bên ngoài trình duyệt, đúng kiểu một bài kiểm
+  // tra render làm.
+  const systemDark = useSyncExternalStore(subscribeToSystemTheme, prefersDark, () => false)
+
+  // systemDark is a dependency so that following the system re-applies the
+  // class when the system changes, with no separate listener to keep in sync.
+  //
+  // systemDark là một phụ thuộc, nhờ vậy chế độ theo hệ thống tự áp lại class
+  // khi hệ thống đổi, mà không cần một listener riêng phải giữ cho khớp.
   useEffect(() => {
     applyTheme(theme)
-  }, [theme])
-
-  // Only while following the system does a change out there mean anything
-  // here. Listening unconditionally would override an explicit choice the
-  // moment the operating system switched.
-  //
-  // Chỉ khi đang đi theo hệ thống thì một thay đổi ngoài kia mới có ý nghĩa ở
-  // đây. Lắng nghe vô điều kiện sẽ ghi đè lên lựa chọn người dùng đã nêu rõ,
-  // ngay khi hệ điều hành đổi.
-  useEffect(() => {
-    if (theme !== 'system') return
-
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => applyTheme('system')
-    media.addEventListener('change', onChange)
-    return () => media.removeEventListener('change', onChange)
-  }, [theme])
+  }, [theme, systemDark])
 
   const choose = (next: Theme) => {
     setTheme(next)
@@ -69,7 +74,7 @@ export function ThemeToggle({
   //
   // Icon thể hiện thứ đang hiển thị chứ không phải thứ đã chọn: ở chế độ
   // "theo hệ thống", cái tên không cho biết hiện tại đang sáng hay tối.
-  const showingDark = theme === 'dark' || (theme === 'system' && prefersDark())
+  const showingDark = theme === 'dark' || (theme === 'system' && systemDark)
   const Icon = showingDark ? Moon : Sun
 
   return (
