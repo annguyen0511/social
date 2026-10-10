@@ -72,7 +72,21 @@ export function CreatePostDialog({
       body.append('content', fields.content.trim())
       body.append('tags', fields.tags)
       body.append('visibility', fields.visibility)
-      if (fields.image) body.append('image', fields.image)
+      if (fields.image) {
+        body.append('image', fields.image)
+
+        // Cả bốn hoặc không cái nào — server từ chối một bộ thiếu, vì ba con
+        // số thì không mô tả nổi một hình chữ nhật.
+        //
+        // All four or none — the server rejects a partial set, because three
+        // numbers describe no rectangle at all.
+        if (fields.crop) {
+          body.append('crop_x', String(Math.round(fields.crop.x)))
+          body.append('crop_y', String(Math.round(fields.crop.y)))
+          body.append('crop_width', String(Math.round(fields.crop.width)))
+          body.append('crop_height', String(Math.round(fields.crop.height)))
+        }
+      }
       return postForm<Post>('/v1/posts', body)
     },
     onSuccess: (created) => {
@@ -159,10 +173,11 @@ export function CreatePostDialog({
               error={fields.imageError}
               onPick={(file) => {
                 const error = validateImage(file)
-                setFields({ ...fields, image: error ? null : file, imageError: error })
+                setFields({ ...fields, image: error ? null : file, imageError: error, crop: null })
               }}
-              onClear={() => setFields({ ...fields, image: null, imageError: null })}
+              onClear={() => setFields({ ...fields, image: null, imageError: null, crop: null })}
               onSkip={() => setStep('details')}
+              onCrop={(crop) => setFields((current) => ({ ...current, crop }))}
             />
           ) : (
             <div className="flex h-[26rem] min-h-0">

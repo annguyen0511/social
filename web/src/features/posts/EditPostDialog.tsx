@@ -21,6 +21,7 @@ const toFields = (post: Post): PostFields => ({
   visibility: post.visibility,
   image: null,
   imageError: null,
+  crop: null,
 })
 
 export function EditPostDialog({

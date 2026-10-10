@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ImagePlus, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ImageCropper } from './ImageCropper'
+import type { CropArea } from './PostForm'
 import { cn } from 'cn'
 
 // Mirrors upload.MaxBytes and the formats image.Decode is set up to read.
@@ -34,12 +36,14 @@ export function ImagePicker({
   onPick,
   onClear,
   onSkip,
+  onCrop,
 }: {
   image: File | null
   error: string | null
   onPick: (file: File) => void
   onClear: () => void
   onSkip: () => void
+  onCrop: (area: CropArea) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -78,9 +82,7 @@ export function ImagePicker({
       />
 
       {preview ? (
-        <div className="grid min-h-0 flex-1 place-items-center bg-muted/40 p-4">
-          <img src={preview} alt="Ảnh sẽ đăng" className="max-h-full max-w-full object-contain" />
-        </div>
+        <ImageCropper src={preview} onCropped={onCrop} />
       ) : (
         // Thả file vào là cách người ta mong đợi ở một màn hình như thế này,
         // và nó không thay thế nút bấm mà chỉ thêm một lối vào.

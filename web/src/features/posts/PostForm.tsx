@@ -21,6 +21,8 @@ export const MAX_CONTENT = 1000
 // image and imageError live here even though this form draws no picker: they
 // are part of the post being written, and the picture step in
 // CreatePostDialog writes into the same place. One type means one draft.
+export type CropArea = { x: number; y: number; width: number; height: number }
+
 export type PostFields = {
   title: string
   content: string
@@ -28,6 +30,12 @@ export type PostFields = {
   visibility: Visibility
   image: File | null
   imageError: string | null
+  // Toạ độ vùng cắt theo điểm ảnh của chính file gốc. null khi chưa chọn ảnh
+  // hoặc người dùng chưa đụng vào khung cắt.
+  //
+  // The crop rectangle in the original file's own pixels. null when no
+  // picture is chosen, or the frame has not been touched yet.
+  crop: CropArea | null
 }
 
 export const emptyPost: PostFields = {
@@ -45,6 +53,7 @@ export const emptyPost: PostFields = {
   visibility: 'public',
   image: null,
   imageError: null,
+  crop: null,
 }
 
 const options: { value: Visibility; label: string; hint: string; icon: typeof Globe }[] = [
