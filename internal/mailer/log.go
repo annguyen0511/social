@@ -22,17 +22,25 @@ func NewLog(logw func(msg string, keysAndValues ...any)) *LogClient {
 }
 
 func (c *LogClient) SendActivation(to, username, activationURL string) error {
+	return c.log(invitationTemplate, "activation", to, username, activationURL)
+}
+
+func (c *LogClient) SendPasswordReset(to, username, resetURL string) error {
+	return c.log(passwordResetTemplate, "password reset", to, username, resetURL)
+}
+
+func (c *LogClient) log(path, kind, to, username, actionURL string) error {
 	// Rendering here too, so a broken template is caught in development
 	// rather than the first time production sends a real message.
 	//
 	// Vẫn render ở đây, để template hỏng bị phát hiện ngay lúc dev chứ không
 	// phải tới lần đầu production gửi thư thật.
-	subject, _, _, err := renderInvitation(username, activationURL)
+	subject, _, _, err := render(path, username, actionURL)
 	if err != nil {
 		return err
 	}
 
-	c.logw("mailer disabled, activation link not sent",
-		"to", to, "username", username, "subject", subject, "activation_url", activationURL)
+	c.logw("mailer disabled, "+kind+" link not sent",
+		"to", to, "username", username, "subject", subject, "url", actionURL)
 	return nil
 }

@@ -39,7 +39,15 @@ func NewSendGrid(apiKey, fromEmail, fromName string, sandbox bool) *SendGridClie
 }
 
 func (c *SendGridClient) SendActivation(to, username, activationURL string) error {
-	subject, plain, html, err := renderInvitation(username, activationURL)
+	return c.send(invitationTemplate, to, username, activationURL)
+}
+
+func (c *SendGridClient) SendPasswordReset(to, username, resetURL string) error {
+	return c.send(passwordResetTemplate, to, username, resetURL)
+}
+
+func (c *SendGridClient) send(path, to, username, actionURL string) error {
+	subject, plain, html, err := render(path, username, actionURL)
 	if err != nil {
 		return err
 	}
@@ -86,5 +94,5 @@ func (c *SendGridClient) SendActivation(to, username, activationURL string) erro
 		}
 	}
 
-	return fmt.Errorf("send activation mail to %s after %d attempts: %w", to, maxSendRetries, lastErr)
+	return fmt.Errorf("send mail to %s after %d attempts: %w", to, maxSendRetries, lastErr)
 }
