@@ -52,7 +52,26 @@ export function SettingsDialog({
 
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-w-3xl overflow-hidden p-0 sm:max-w-3xl">
+      {/* Khung cố định, không co theo nội dung từng mục. Mục Giao diện chỉ
+          có ba dòng còn mục Trang cá nhân là cả một biểu mẫu, nên để hộp
+          thoại tự co sẽ khiến nó nhảy kích thước mỗi lần đổi mục — và các nút
+          chọn mục bên trái cũng trượt theo.
+
+          grid-rows-[auto_1fr] cho hàng tiêu đề đúng chiều cao của nó và giao
+          toàn bộ phần còn lại cho thân; max-h theo dvh là thứ giữ hộp thoại
+          không tràn khỏi màn hình thấp.
+
+          A fixed frame, not one that follows each section's content. The
+          theme section is three rows while the profile section is a whole
+          form, so letting the dialog size itself would make it jump on every
+          switch — taking the section buttons on the left along with it.
+
+          grid-rows-[auto_1fr] gives the header row its natural height and
+          hands everything left to the body; the dvh max-height is what keeps
+          the dialog from running off a short screen. */}
+      <DialogContent
+        className="grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl grid-rows-[auto_1fr] gap-0 overflow-hidden p-0 sm:max-w-3xl"
+      >
         <DialogHeader className="border-b border-border px-6 py-4">
           <DialogTitle>Cài đặt</DialogTitle>
           <DialogDescription className="sr-only">
@@ -63,9 +82,17 @@ export function SettingsDialog({
         {/* Trên màn hình hẹp, danh sách mục nằm ngang phía trên thay vì thành
             một cột chiếm nửa bề ngang hộp thoại.
 
+            min-h-0 là thứ cho phép hàng này co lại nhỏ hơn nội dung của nó
+            trên màn hình thấp; thiếu nó thì một ô lưới mặc định không chịu co
+            và hộp thoại sẽ tràn ra ngoài.
+
             On a narrow screen the section list sits across the top instead of
-            becoming a column that eats half the dialog's width. */}
-        <div className="flex max-h-[70dvh] flex-col sm:flex-row">
+            becoming a column that eats half the dialog's width.
+
+            min-h-0 is what lets this row shrink below its content on a short
+            screen; without it a grid cell refuses to shrink and the dialog
+            spills off the viewport. */}
+        <div className="flex h-[560px] min-h-0 flex-col sm:flex-row">
           <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-border p-2 sm:w-52 sm:flex-col sm:overflow-x-visible sm:border-b-0 sm:border-r">
             {sections.map(({ id, label, icon: Icon }) => (
               <button
