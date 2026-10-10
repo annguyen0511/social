@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import type { FeedPost } from '../../api/types'
 import { formatDateTime } from '../../lib/format'
 import { UserAvatar } from '../users/UserAvatar'
+import { VisibilityBadge } from './VisibilityBadge'
 import { LikeButton } from './LikeButton'
 import { RepostButton } from './RepostButton'
 import { SaveButton } from './SaveButton'
@@ -36,6 +37,7 @@ export function PostCard({ post }: { post: FeedPost }) {
           <span className="shrink-0 text-sm text-muted-foreground">
             · {formatDateTime(post.created_at)}
           </span>
+          <VisibilityBadge visibility={post.visibility} />
         </div>
 
         <Link to={`/posts/${post.id}`} className="block">

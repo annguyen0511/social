@@ -36,6 +36,7 @@ export function CreatePostDialog({
         title: fields.title.trim(),
         content: fields.content.trim(),
         tags: parseTags(fields.tags),
+        visibility: fields.visibility,
       }
       return post<Post>('/v1/posts', body)
     },

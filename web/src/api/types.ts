@@ -101,6 +101,7 @@ export type Post = {
   content: string
   user_id: number
   tags: string[] | null
+  visibility: Visibility
   user: User
   comments: Comment[] | null
   created_at: string
@@ -142,16 +143,25 @@ export type RepostState = {
   is_reposted: boolean
 }
 
+// "private" nghĩa là chỉ tác giả và những người tác giả đã đưa vào danh sách
+// bạn thân đọc được. Không phải "chỉ mình tôi".
+//
+// "private" means the author plus whoever the author listed as a close
+// friend. It does not mean "only me".
+export type Visibility = 'public' | 'private'
+
 export type PostCreate = {
   title: string
   content: string
   tags?: string[]
+  visibility?: Visibility
 }
 
 export type PostUpdate = {
   title?: string
   content?: string
   tags?: string[]
+  visibility?: Visibility
 }
 
 export type FeedPost = {
@@ -160,6 +170,7 @@ export type FeedPost = {
   content: string
   user_id: number
   tags: string[] | null
+  visibility: Visibility
   user: User
   comment_count: number
   like_count: number

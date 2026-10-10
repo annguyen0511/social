@@ -13,6 +13,7 @@ import { LikeButton } from './LikeButton'
 import { RepostButton } from './RepostButton'
 import { SaveButton } from './SaveButton'
 import { PostActions } from './PostActions'
+import { VisibilityBadge } from './VisibilityBadge'
 
 /**
  * Goes back where the reader came from, or home when there is nowhere to go.
@@ -136,6 +137,8 @@ export function PostDetailPage() {
                 </span>
               </span>
             </Link>
+
+            <VisibilityBadge visibility={data.visibility} />
 
             {isMine && <PostActions post={data} />}
           </div>

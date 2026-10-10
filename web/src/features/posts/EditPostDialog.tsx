@@ -18,6 +18,7 @@ const toFields = (post: Post): PostFields => ({
   title: post.title,
   content: post.content,
   tags: (post.tags ?? []).join(', '),
+  visibility: post.visibility,
 })
 
 export function EditPostDialog({
@@ -50,6 +51,7 @@ export function EditPostDialog({
       if (fields.title.trim() !== before.title) body.title = fields.title.trim()
       if (fields.content.trim() !== before.content) body.content = fields.content.trim()
       if (fields.tags !== before.tags) body.tags = parseTags(fields.tags)
+      if (fields.visibility !== before.visibility) body.visibility = fields.visibility
       return patch<Post>(`/v1/posts/${post.id}`, body)
     },
     onSuccess: () => {

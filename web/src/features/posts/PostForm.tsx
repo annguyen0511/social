@@ -1,6 +1,9 @@
+import { Globe, Lock } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { cn } from 'cn'
+import type { Visibility } from '../../api/types'
 
 // Mirrors the validate tags on createPostRequest in cmd/api/posts.go. The
 // server stays the authority; this only saves a doomed round trip.
@@ -11,9 +14,27 @@ import { Textarea } from '@/components/ui/textarea'
 export const MAX_TITLE = 100
 export const MAX_CONTENT = 1000
 
-export type PostFields = { title: string; content: string; tags: string }
+export type PostFields = { title: string; content: string; tags: string; visibility: Visibility }
 
-export const emptyPost: PostFields = { title: '', content: '', tags: '' }
+export const emptyPost: PostFields = {
+  title: '',
+  content: '',
+  tags: '',
+  // Mặc định công khai: chọn sai theo hướng kín thì không ai thấy bài, chọn
+  // sai theo hướng mở thì bài lọt ra ngoài. Nhưng người dùng mong bài mình
+  // viết có người đọc, nên mặc định phải là thứ họ chờ đợi, và nút kia nằm
+  // ngay cạnh.
+  //
+  // Public by default: erring closed means nobody sees the post, erring open
+  // means it leaks. People expect what they write to be read, though, so the
+  // default has to be what they expect, with the other option right beside it.
+  visibility: 'public',
+}
+
+const options: { value: Visibility; label: string; hint: string; icon: typeof Globe }[] = [
+  { value: 'public', label: 'Công khai', hint: 'Ai cũng xem được', icon: Globe },
+  { value: 'private', label: 'Bạn thân', hint: 'Chỉ bạn thân của bạn xem được', icon: Lock },
+]
 
 /**
  * Tags travel as an array but are typed as one comma-separated line, so the
@@ -80,6 +101,32 @@ export function PostForm({
           rows={5}
           onChange={(event) => onChange({ ...fields, content: event.target.value })}
         />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Ai xem được</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {options.map(({ value, label, hint, icon: Icon }) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={fields.visibility === value}
+              onClick={() => onChange({ ...fields, visibility: value })}
+              className={cn(
+                'flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors',
+                fields.visibility === value
+                  ? 'border-foreground bg-muted'
+                  : 'border-border hover:bg-muted',
+              )}
+            >
+              <Icon className="mt-0.5 size-4 shrink-0" />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">{label}</span>
+                <span className="block text-xs text-muted-foreground">{hint}</span>
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-1.5">
