@@ -144,6 +144,8 @@ func (app *application) mount() *chi.Mux {
 				r.Delete("/like", app.unlikeHandler)
 				r.Put("/save", app.saveHandler)
 				r.Delete("/save", app.unsaveHandler)
+				r.Put("/repost", app.repostHandler)
+				r.Delete("/repost", app.unrepostHandler)
 				r.Patch("/", app.updatePostHandler)
 				r.Delete("/", app.deletePostHandler)
 			})
@@ -155,6 +157,7 @@ func (app *application) mount() *chi.Mux {
 
 				r.Get("/", app.getUserHandler)
 				r.Get("/posts", app.listUserPostsHandler)
+				r.Get("/reposts", app.listUserRepostsHandler)
 				r.Get("/followers", app.listFollowersOfUserHandler)
 				r.Get("/following", app.listFollowingOfUserHandler)
 			})

@@ -18,6 +18,7 @@ type UserProfileViewModelResponse Response[userProfile]           //@name UserPr
 type FriendshipStatusViewModelResponse Response[friendshipStatus] //@name FriendshipStatusViewModelResponse
 type LikeViewModelResponse Response[likeState]                    //@name LikeViewModelResponse
 type SaveViewModelResponse Response[saveState]                    //@name SaveViewModelResponse
+type RepostViewModelResponse Response[repostState]                //@name RepostViewModelResponse
 
 type FeedPostViewModelPagination Pagination[model.FeedPost]       //@name FeedPostViewModelPagination
 type FollowViewModelPagination Pagination[model.Follow]           //@name FollowViewModelPagination

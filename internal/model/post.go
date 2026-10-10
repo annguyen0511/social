@@ -37,6 +37,22 @@ type Post struct {
 	// việc lưu bài là riêng tư, nên có bao nhiêu người đã lưu một bài là
 	// chuyện của riêng họ.
 	IsSaved bool `json:"is_saved"`
+
+	// RepostCount and IsReposted follow the same shape as the like pair: a
+	// public number plus a flag about the person asking.
+	//
+	// A repost is a relation, not a post of its own, so it never appears in
+	// posts_count — reposting someone does not make you the author of
+	// anything.
+	//
+	// RepostCount và IsReposted theo đúng hình dạng của cặp like: một con số
+	// công khai cộng một cờ nói về người đang hỏi.
+	//
+	// Repost là một quan hệ chứ không phải một bài viết riêng, nên nó không
+	// bao giờ được tính vào posts_count — repost bài người khác không khiến
+	// bạn thành tác giả của thứ gì cả.
+	RepostCount int64 `json:"repost_count"`
+	IsReposted  bool  `json:"is_reposted"`
 } //@name PostViewModel
 
 type FeedPost struct {

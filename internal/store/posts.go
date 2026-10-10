@@ -201,7 +201,9 @@ func feedPostColumns(viewer string) string {
 	(SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
 	(SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
 	EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ` + viewer + `) AS is_liked,
-	EXISTS (SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = ` + viewer + `) AS is_saved
+	EXISTS (SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = ` + viewer + `) AS is_saved,
+	(SELECT COUNT(*) FROM reposts rp WHERE rp.post_id = p.id) AS repost_count,
+	EXISTS (SELECT 1 FROM reposts rp WHERE rp.post_id = p.id AND rp.user_id = ` + viewer + `) AS is_reposted
 	`
 }
 
@@ -214,6 +216,7 @@ func scanFeedPost(rows *sql.Rows) (model.FeedPost, error) {
 		&post.User.AvatarURL, &post.Title, &post.Content, pq.Array(&post.Tags),
 		&post.CreatedAt, &post.UpdatedAt, &post.Version,
 		&post.CommentCount, &post.LikeCount, &post.IsLiked, &post.IsSaved,
+		&post.RepostCount, &post.IsReposted,
 	)
 	post.User.ID = post.UserID
 	return post, err
@@ -239,6 +242,32 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, page Paginati
 	`
 
 	return paginate(ctx, s.db, page, countQuery, pageQuery, []any{userID}, scanFeedPost)
+}
+
+// GetReposted returns the posts authorID has reposted, most recently first.
+//
+// Unlike a saved list this one is public, so it takes two ids: whose reposts
+// to list, and who is looking at them — the second is what decides the
+// is_liked, is_saved and is_reposted flags on each row.
+//
+// GetReposted trả về những bài authorID đã repost, mới nhất trước.
+//
+// Khác với danh sách đã lưu, danh sách này là công khai nên nhận hai id: liệt
+// kê repost của ai, và ai đang xem — cái thứ hai mới là thứ quyết định các cờ
+// is_liked, is_saved và is_reposted trên từng dòng.
+func (s *PostStore) GetReposted(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error) {
+	countQuery := `SELECT COUNT(*) FROM reposts WHERE user_id = $1`
+	pageQuery := `
+	SELECT ` + feedPostColumns("$2") + `
+	FROM reposts r
+	JOIN posts p ON p.id = r.post_id
+	JOIN users u ON u.id = p.user_id
+	WHERE r.user_id = $1
+	ORDER BY r.created_at DESC, p.id DESC
+	LIMIT $3 OFFSET $4
+	`
+
+	return paginateWith(ctx, s.db, page, countQuery, []any{authorID}, pageQuery, []any{authorID, viewerID}, scanFeedPost)
 }
 
 // GetSaved returns the posts viewerID has saved, most recently saved first.

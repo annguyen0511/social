@@ -350,6 +350,43 @@ func (app *application) listPeopleHandler(
 	app.jsonResponse(w, r, http.StatusOK, newPagination(people, page, total), message)
 }
 
+// listUserRepostsHandler godoc
+//
+//	@Summary		List the posts a user reposted
+//	@Description	Posts the user in the route has reposted, most recently reposted first. Public, unlike a saved list.
+//	@Tags			User
+//	@Produce		json
+//	@Param			userID		path		int	true	"User ID"
+//	@Param			page		query		int	false	"Page number, starting at 1"	default(1)	minimum(1)
+//	@Param			page_size	query		int	false	"Items per page"				default(20)	minimum(1)	maximum(100)
+//	@Success		200			{object}	FeedPostViewModelPaginationResponse
+//	@Failure		400			{object}	JSONError
+//	@Failure		401			{object}	JSONError
+//	@Failure		404			{object}	JSONError
+//	@Failure		500			{object}	JSONError
+//	@Router			/users/{userID}/reposts [get]
+func (app *application) listUserRepostsHandler(w http.ResponseWriter, r *http.Request) {
+	author, ok := getUserFromContext(r)
+	if !ok {
+		app.internalServerError(w, r, errors.New("user missing from request context"))
+		return
+	}
+
+	page, err := readPagination(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	posts, total, err := app.store.Post.GetReposted(r.Context(), author.ID, authUser(r).ID, page)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	app.jsonResponse(w, r, http.StatusOK, newPagination(posts, page, total), "reposts retrieved successfully")
+}
+
 // minSearchQuery keeps a one-character query from matching almost everyone.
 // Trigram matching needs three characters to use the index well, but two is a
 // reasonable floor for short usernames.

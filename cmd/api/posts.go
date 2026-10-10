@@ -255,6 +255,14 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	post.IsSaved = isSaved
 
+	repostCount, isReposted, err := app.store.Repost.Stats(r.Context(), post.ID, authUser(r).ID)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+	post.RepostCount = repostCount
+	post.IsReposted = isReposted
+
 	err = app.jsonResponse(w, r, http.StatusOK, post, "Success")
 	if err != nil {
 		app.internalServerError(w, r, err)

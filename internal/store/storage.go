@@ -30,6 +30,7 @@ type Storage struct {
 		GetByUser(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error)
 		CountByUser(ctx context.Context, authorID int64) (int64, error)
 		GetSaved(ctx context.Context, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error)
+		GetReposted(ctx context.Context, authorID, viewerID int64, page PaginationQuery) ([]model.FeedPost, int64, error)
 	}
 
 	User interface {
@@ -63,6 +64,11 @@ type Storage struct {
 		ListBlocking(ctx context.Context, blockerId int64, page PaginationQuery) ([]model.User, int64, error)
 		IsBlocking(ctx context.Context, blockerId int64, blockedId int64) (bool, error)
 	}
+	Repost interface {
+		Repost(ctx context.Context, postID, userID int64) error
+		Unrepost(ctx context.Context, postID, userID int64) error
+		Stats(ctx context.Context, postID, viewerID int64) (int64, bool, error)
+	}
 	Save interface {
 		Save(ctx context.Context, postID, userID int64) error
 		Unsave(ctx context.Context, postID, userID int64) error
@@ -90,6 +96,7 @@ func NewStorage(db *sql.DB) Storage {
 		Block:       &BlockStore{db},
 		Like:        &LikeStore{db},
 		Save:        &SaveStore{db},
+		Repost:      &RepostStore{db},
 		CloseFriend: &CloseFriendStore{db},
 	}
 }
