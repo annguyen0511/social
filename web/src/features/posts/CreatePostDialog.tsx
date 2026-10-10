@@ -106,16 +106,26 @@ export function CreatePostDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Khung cố định, không co theo từng bước: bước chọn ảnh gần như trống
-          còn bước chi tiết là cả một biểu mẫu, để hộp thoại tự co sẽ khiến nó
-          nhảy kích thước khi bấm Tiếp.
+      {/* Chiều cao PHẢI xác định, không chỉ là max-h.
+          Cropper đặt nội dung bằng position: absolute nên nó không có chiều
+          cao tự thân; cha mà để auto thì cả khung cắt sập về gần 0 và người
+          dùng chẳng thấy gì để kéo. h-[85dvh] là thứ cho hàng 1fr một kích
+          thước thật để truyền xuống.
 
-          A fixed frame, not one that follows each step: the picture step is
-          nearly empty while the details step is a whole form, so letting the
-          dialog size itself would make it jump when you press Next. */}
+          Nó cũng giữ khung không nhảy giữa hai bước: bước chọn ảnh gần như
+          trống còn bước chi tiết là cả một biểu mẫu.
+
+          The height MUST be definite, not just a max.
+          Cropper lays its content out with position: absolute, so it has no
+          height of its own; leave the parent on auto and the whole crop frame
+          collapses to nearly nothing, with no visible area to drag. h-[85dvh]
+          is what gives the 1fr row a real size to pass down.
+
+          It also keeps the frame from jumping between steps: the picture step
+          is nearly empty while the details step is a whole form. */}
       <DialogContent
         showCloseButton={false}
-        className="grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-4xl grid-rows-[auto_1fr] gap-0 overflow-hidden p-0 sm:max-w-4xl"
+        className="grid h-[85dvh] max-h-[48rem] w-[calc(100%-2rem)] max-w-5xl grid-rows-[auto_1fr] gap-0 overflow-hidden p-0 sm:max-w-5xl"
       >
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-2">
           <Button
@@ -180,7 +190,7 @@ export function CreatePostDialog({
               onCrop={(crop) => setFields((current) => ({ ...current, crop }))}
             />
           ) : (
-            <div className="flex h-[26rem] min-h-0">
+            <div className="flex h-full min-h-0">
               {/* Ảnh ở lại bên trái suốt bước hai, để người viết nhìn thấy
                   thứ mình đang viết về. Bài không có ảnh thì cột này biến
                   mất và biểu mẫu chiếm trọn bề ngang.
