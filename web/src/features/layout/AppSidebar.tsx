@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
 import { Link, NavLink } from 'react-router-dom'
-import { Compass, Heart, House, LogOut, MessageCircle, SquarePlus } from 'lucide-react'
+import { Ban, Compass, Heart, House, LogOut, MessageCircle, SquarePlus } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from 'cn'
 import type { User } from '../../api/types'
@@ -120,6 +120,21 @@ export function AppSidebar({
             <Skeleton className={cn(label, 'h-4 w-24')} />
           </div>
         )}
+
+        {/* Danh sách chặn nằm ở cụm dưới cùng với giao diện và đăng xuất:
+            đó là việc quản lý tài khoản, không phải một nơi để lui tới hằng
+            ngày như bảng tin.
+
+            The blocked list sits in the bottom cluster with the theme and
+            logout: it is account management, not somewhere to visit daily the
+            way the feed is. */}
+        <NavLink
+          to="/blocked"
+          className={({ isActive }) => cn(row, 'hover:bg-muted', isActive && 'font-semibold')}
+        >
+          <Ban className="size-6 shrink-0" />
+          <span className={label}>Đã chặn</span>
+        </NavLink>
 
         <ThemeToggle className={cn(row, 'h-auto font-normal hover:bg-muted')} labelClassName={label} />
 
