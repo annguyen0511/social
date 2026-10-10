@@ -154,6 +154,12 @@ func (app *application) mount() *chi.Mux {
 			r.Use(app.requireAuth)
 			r.Route("/{userID}", func(r chi.Router) {
 				r.Use(app.userContextMiddleware)
+				// Chỉ nhóm này. Nhóm /friend-ship/{userID} bên dưới cố tình
+				// không có, vì lệnh gỡ chặn nằm ở đó.
+				//
+				// This group only. The /friend-ship/{userID} group below
+				// deliberately has none, because unblocking lives there.
+				r.Use(app.requireNotBlockedUser)
 
 				r.Get("/", app.getUserHandler)
 				r.Get("/posts", app.listUserPostsHandler)

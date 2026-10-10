@@ -63,6 +63,7 @@ type Storage struct {
 		Unblock(ctx context.Context, blockerId int64, blockedId int64) error
 		ListBlocking(ctx context.Context, blockerId int64, page PaginationQuery) ([]model.User, int64, error)
 		IsBlocking(ctx context.Context, blockerId int64, blockedId int64) (bool, error)
+		Exists(ctx context.Context, userID, otherID int64) (bool, error)
 	}
 	Repost interface {
 		Repost(ctx context.Context, postID, userID int64) error

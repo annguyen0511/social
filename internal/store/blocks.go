@@ -54,8 +54,24 @@ func (s *BlockStore) Block(ctx context.Context, blockerId int64, blockedId int64
 }
 
 // check block exists in transaction
-func blockExistsTx(ctx context.Context, tx *sql.Tx, userId int64, otherId int64) (bool, error) {
-	query := `
+// blockExistsSQL asks whether a block stands between two people, in either
+// direction. One constant so the transactional and plain versions below can
+// never answer differently.
+//
+// A block is one row in one direction, but it means both: the blocked person
+// loses access to the blocker's side as much as the other way round. Checking
+// only `blocker_id = me` would let someone who blocked you keep reading
+// everything of yours.
+//
+// blockExistsSQL hỏi xem giữa hai người có lệnh chặn nào không, ở bất kỳ
+// chiều nào. Một hằng số duy nhất để bản chạy trong transaction và bản chạy
+// thường bên dưới không bao giờ trả lời khác nhau.
+//
+// Một lệnh chặn là một dòng theo một chiều, nhưng ý nghĩa của nó là hai
+// chiều: người bị chặn mất quyền truy cập phía người chặn, và ngược lại cũng
+// vậy. Chỉ kiểm `blocker_id = tôi` sẽ để người đã chặn bạn vẫn đọc được mọi
+// thứ của bạn.
+const blockExistsSQL = `
 	SELECT EXISTS(
 		SELECT 1 FROM blocks
 		WHERE (blocker_id = $1 AND blocked_id = $2)
@@ -63,8 +79,23 @@ func blockExistsTx(ctx context.Context, tx *sql.Tx, userId int64, otherId int64)
 	)
 	`
 
+func blockExistsTx(ctx context.Context, tx *sql.Tx, userId int64, otherId int64) (bool, error) {
 	var exists bool
-	err := tx.QueryRowContext(ctx, query, userId, otherId).Scan(&exists)
+	err := tx.QueryRowContext(ctx, blockExistsSQL, userId, otherId).Scan(&exists)
+	return exists, err
+}
+
+// Exists is blockExistsTx outside a transaction, for the read paths that only
+// need to know whether to show something at all.
+//
+// Exists là blockExistsTx nhưng ngoài transaction, dành cho các đường đọc chỉ
+// cần biết có nên hiển thị thứ gì đó hay không.
+func (s *BlockStore) Exists(ctx context.Context, userID, otherID int64) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	var exists bool
+	err := s.db.QueryRowContext(ctx, blockExistsSQL, userID, otherID).Scan(&exists)
 	return exists, err
 }
 

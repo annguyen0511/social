@@ -36,6 +36,18 @@ func (app *application) postContextMiddileware(next http.Handler) http.Handler {
 				return
 			}
 		}
+		// One gate for everything hanging off /posts/{postID}: reading it,
+		// commenting, liking, saving, reposting. Editing and deleting pass
+		// through untouched, because those are owner-only and nobody blocks
+		// themselves.
+		//
+		// Một cánh cổng duy nhất cho mọi thứ nằm dưới /posts/{postID}: đọc
+		// bài, bình luận, thích, lưu, repost. Sửa và xoá đi qua không vướng
+		// gì, vì hai việc đó chỉ chủ bài làm được mà không ai tự chặn mình.
+		if app.hideWhenBlocked(w, r, post.UserID) {
+			return
+		}
+
 		ctx = context.WithValue(ctx, postContextKey, post)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

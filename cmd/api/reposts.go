@@ -10,7 +10,7 @@ import (
 // repostHandler godoc
 //
 //	@Summary		Repost a post
-//	@Description	Shares someone's post under your name. Idempotent: reposting something already reposted still returns the same state. Rejected with 403 while either user blocks the other.
+//	@Description	Shares someone's post under your name. Idempotent: reposting something already reposted still returns the same state. A post belonging to someone on either side of a block answers 404 before this handler runs, so the 403 below is only reachable if the route gate is ever removed.
 //	@Tags			Post
 //	@Produce		json
 //	@Param			postID	path		int	true	"Post ID"
